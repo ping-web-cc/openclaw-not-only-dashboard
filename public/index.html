@@ -429,7 +429,8 @@
               rows="4"></textarea>
             <div class="flex gap-1.5">
               <button id="voice-btn"
-                class="flex-1 py-1.5 rounded border border-accent/40 text-accent text-xs font-mono hover:bg-accent/10 transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                class="flex-1 py-1.5 rounded border border-accent/40 text-accent text-xs font-mono hover:bg-accent/10 transition-colors flex items-center justify-center gap-1 cursor-pointer select-none"
+                style="-webkit-user-select:none;user-select:none;touch-action:none">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
                 </svg>
@@ -673,8 +674,8 @@
         chatPlaceholder: '選擇 Agent 後開始對話',
         inputPlaceholder: '輸入訊息...',
         iosDictationHint: '點鍵盤上的 🎤 說話',
-        voice: '語音',
-        listening: '聆聽中',
+        voice: '按住說話',
+        listening: '說話中',
         send: '發送',
         tabSoul: '靈魂',
         tabCron: '排程',
@@ -731,8 +732,8 @@
         chatPlaceholder: 'Select an Agent to start chatting',
         inputPlaceholder: 'Type a message...',
         iosDictationHint: 'Tap 🎤 on keyboard to speak',
-        voice: 'Voice',
-        listening: 'Listening',
+        voice: 'Hold to Talk',
+        listening: 'Speaking',
         send: 'Send',
         tabSoul: 'Soul',
         tabCron: 'Cron',
@@ -1316,6 +1317,7 @@
     // VOICE
     // ═══════════════════════════════════════════════════════════════
     let recognition = null
+    let voiceTranscript = ''   // accumulates latest transcript across onresult events
 
     function initVoice() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -1332,13 +1334,17 @@
           if (result.isFinal) final += result[0].transcript
           else interim += result[0].transcript
         }
-        document.getElementById('chat-input').value = final || interim
+        voiceTranscript = final || interim
+        document.getElementById('chat-input').value = voiceTranscript
       }
       recognition.onend = () => {
-        const input = document.getElementById('chat-input')
-        const text = input.value.trim()
         stopListening()
-        if (text) sendMessage()
+        const text = voiceTranscript.trim()
+        voiceTranscript = ''
+        if (text) {
+          document.getElementById('chat-input').value = text
+          sendMessage()
+        }
       }
       recognition.onerror = () => stopListening()
     }
@@ -1366,7 +1372,7 @@
 
     function stopListening() {
       state.isListening = false
-      recognition?.stop()
+      try { recognition?.stop() } catch (_) {}
       const btn = document.getElementById('voice-btn')
       btn.classList.remove('voice-active')
       document.getElementById('voice-label').textContent = t('voice')
@@ -1993,10 +1999,16 @@
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
       })
 
-      // Voice
-      document.getElementById('voice-btn').addEventListener('click', () => {
-        if (state.isListening) stopListening(); else startListening()
-      })
+      // Voice — Push-to-Talk: hold to record, release to send
+      const voiceBtn = document.getElementById('voice-btn')
+      const onVoiceStart = (e) => { e.preventDefault(); startListening() }
+      const onVoiceEnd   = (e) => { if (state.isListening) stopListening() }
+      voiceBtn.addEventListener('mousedown',  onVoiceStart)
+      // Listen on document so mouseup anywhere (even outside button) still stops recording
+      document.addEventListener('mouseup', onVoiceEnd)
+      voiceBtn.addEventListener('touchstart', onVoiceStart, { passive: false })
+      voiceBtn.addEventListener('touchend',   onVoiceEnd,   { passive: false })
+      voiceBtn.addEventListener('touchcancel',onVoiceEnd,   { passive: false })
 
       // File save
       document.getElementById('save-file-btn').addEventListener('click', async () => {
