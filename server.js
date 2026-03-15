@@ -7,9 +7,16 @@ const os = require('os')
 const app = express()
 const PORT = process.env.PORT || 18790
 const OC_DIR = path.join(os.homedir(), '.openclaw')
+const DEMO_MODE = process.env.DEMO_MODE === 'true'
 
 app.use(express.json({ limit: '10mb' }))
 app.use(express.static(path.join(__dirname, 'public')))
+
+// ─── Demo Mode Guard ────────────────────────────────────────────────────────
+function demoGuard(req, res, next) {
+  if (DEMO_MODE) return res.status(403).json({ error: 'Demo mode — read only' })
+  next()
+}
 
 // ─── Safety ────────────────────────────────────────────────────────────────
 function safePath(...parts) {
@@ -75,7 +82,7 @@ app.get('/api/agent/:id', async (req, res) => {
 })
 
 // Save workspace md file
-app.put('/api/agent/:id/file', async (req, res) => {
+app.put('/api/agent/:id/file', demoGuard, async (req, res) => {
   const { id } = req.params
   const { filename, content } = req.body
   if (!validId(id)) return res.status(400).json({ error: 'Invalid agent id' })
@@ -105,7 +112,7 @@ app.put('/api/agent/:id/file', async (req, res) => {
 })
 
 // Update agent fields in openclaw.json (name, description)
-app.patch('/api/agent/:id', async (req, res) => {
+app.patch('/api/agent/:id', demoGuard, async (req, res) => {
   const { id } = req.params
   if (!validId(id)) return res.status(400).json({ error: 'Invalid agent id' })
 
@@ -145,7 +152,7 @@ app.get('/api/cron', async (req, res) => {
   }
 })
 
-app.put('/api/cron', async (req, res) => {
+app.put('/api/cron', demoGuard, async (req, res) => {
   try {
     const jobsPath = safePath('cron', 'jobs.json')
     const raw = await fs.readFile(jobsPath, 'utf8')
@@ -165,7 +172,7 @@ app.put('/api/cron', async (req, res) => {
 })
 
 // Toggle single job enabled/disabled
-app.patch('/api/cron/:jobId/toggle', async (req, res) => {
+app.patch('/api/cron/:jobId/toggle', demoGuard, async (req, res) => {
   const { jobId } = req.params
   try {
     const jobsPath = safePath('cron', 'jobs.json')
@@ -231,7 +238,7 @@ app.get('/api/pit-config', async (_req, res) => {
   res.json(await readPitConfig())
 })
 
-app.put('/api/pit-config', async (req, res) => {
+app.put('/api/pit-config', demoGuard, async (req, res) => {
   try {
     const current = await readPitConfig()
     const updated = { ...current, ...req.body }
@@ -282,34 +289,57 @@ app.post('/api/tts', async (req, res) => {
   }
 })
 
-app.post('/api/chat', async (req, res) => {
+// ─── Chat (async job, avoids Cloudflare 100s timeout) ──────────────────────
+const chatJobs = new Map() // jobId → { status, reply, error, ts }
+
+function pruneJobs() {
+  const cutoff = Date.now() - 10 * 60 * 1000 // keep 10 min
+  for (const [id, job] of chatJobs) {
+    if (job.ts < cutoff) chatJobs.delete(id)
+  }
+}
+
+app.post('/api/chat', demoGuard, async (req, res) => {
   const { agentId, message } = req.body
   if (!agentId || !message) return res.status(400).json({ error: 'agentId and message required' })
+  if (!validId(agentId)) return res.status(400).json({ error: 'Invalid agent id' })
 
-  const { exec } = await import('child_process')
-  const { promisify } = await import('util')
-  const execAsync = promisify(exec)
+  const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  chatJobs.set(jobId, { status: 'running', reply: null, error: null, ts: Date.now() })
+  pruneJobs()
 
-  // Escape message for shell
-  const escaped = message.replace(/'/g, `'"'"'`)
-  const cmd = `docker exec -u node openclaw-docker-openclaw-1 openclaw agent --agent '${agentId}' --message '${escaped}' --json`
-
-  try {
-    const { stdout } = await execAsync(cmd, { timeout: 120000 })
-    // openclaw agent --json returns lines; last non-empty JSON line is the result
-    // stdout has [plugins] log lines followed by a multiline JSON blob
-    const jsonStart = stdout.indexOf('\n{')
-    if (jsonStart !== -1) {
-      try {
-        const parsed = JSON.parse(stdout.slice(jsonStart + 1))
-        const reply = parsed?.result?.payloads?.[0]?.text ?? parsed?.reply ?? null
-        return res.json({ reply, runId: parsed?.runId, status: parsed?.status })
-      } catch { /* fall through */ }
+  // Run agent in background — don't await
+  ;(async () => {
+    const { exec } = await import('child_process')
+    const { promisify } = await import('util')
+    const execAsync = promisify(exec)
+    const escaped = message.replace(/'/g, `'"'"'`)
+    const containerName = process.env.OPENCLAW_CONTAINER || 'openclaw-docker-openclaw-1'
+    const cmd = `docker exec -u node ${containerName} openclaw agent --agent '${agentId}' --message '${escaped}' --json`
+    try {
+      const { stdout } = await execAsync(cmd, { timeout: 300000 })
+      const jsonStart = stdout.indexOf('\n{')
+      if (jsonStart !== -1) {
+        try {
+          const parsed = JSON.parse(stdout.slice(jsonStart + 1))
+          const reply = parsed?.result?.payloads?.[0]?.text ?? parsed?.reply ?? null
+          chatJobs.set(jobId, { status: 'done', reply, runId: parsed?.runId, ts: Date.now() })
+          return
+        } catch { /* fall through */ }
+      }
+      chatJobs.set(jobId, { status: 'done', reply: stdout.trim(), ts: Date.now() })
+    } catch (e) {
+      chatJobs.set(jobId, { status: 'error', error: e.message?.split('\n')[0] || 'Agent exec failed', ts: Date.now() })
     }
-    res.json({ reply: stdout.trim() })
-  } catch (e) {
-    res.status(502).json({ error: e.message?.split('\n')[0] || 'Agent exec failed' })
-  }
+  })()
+
+  res.json({ jobId })
+})
+
+app.get('/api/chat/:jobId', (req, res) => {
+  const job = chatJobs.get(req.params.jobId)
+  if (!job) return res.status(404).json({ error: 'Job not found' })
+  res.json(job)
 })
 
 // ─── Start ─────────────────────────────────────────────────────────────────

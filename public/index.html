@@ -351,7 +351,7 @@
               <div class="font-mono text-xl font-bold text-white leading-tight" id="stage-name" data-i18n="selectAgent">選擇 Agent</div>
               <div class="text-xs text-gray-400 mt-0.5" id="stage-role"></div>
               <div class="text-xs text-purple-400 font-mono mt-0.5" id="stage-model"></div>
-              <div id="agent-voice-row" class="hidden flex items-center gap-1.5 mt-1">
+              <div id="agent-voice-row" class="hidden flex items-center gap-1.5 mt-1" style="pointer-events:auto">
                 <svg class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0a9 9 0 01-9-9 9 9 0 019-9 9 9 0 019 9 9 9 0 01-9 9z"/>
                 </svg>
@@ -846,7 +846,25 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ agentId, message })
-        }); return r.json()
+        })
+        const text = await r.text()
+        let res
+        try { res = JSON.parse(text) } catch { return { error: `Server error (${r.status}): ${text.slice(0, 200)}` } }
+        if (!r.ok) return { error: res.error || `Server error (${r.status})` }
+        if (!res.jobId) return res
+
+        // Poll until done
+        const deadline = Date.now() + 5 * 60 * 1000
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 1500))
+          try {
+            const pr = await fetch(`/api/chat/${res.jobId}`)
+            const job = await pr.json()
+            if (job.status === 'done') return { reply: job.reply, runId: job.runId }
+            if (job.status === 'error') return { error: job.error || 'Agent error' }
+          } catch { /* retry */ }
+        }
+        return { error: 'Timeout waiting for agent reply' }
       }
     }
 
@@ -1329,7 +1347,25 @@
                              'text-gray-500 text-center py-1'
       }`
       div.dataset.role = role
-      div.textContent = role === 'user' ? `> ${text}` : text
+
+      if (role === 'agent') {
+        const wrap = document.createElement('div')
+        wrap.className = 'flex items-start gap-1.5'
+        const textSpan = document.createElement('span')
+        textSpan.className = 'flex-1'
+        textSpan.textContent = text
+        const btn = document.createElement('button')
+        btn.textContent = '🔊'
+        btn.title = 'Play voice'
+        btn.className = 'flex-shrink-0 opacity-40 hover:opacity-100 transition-opacity text-sm leading-none mt-0.5 cursor-pointer'
+        btn.addEventListener('click', () => speak(text.slice(0, 200)))
+        wrap.appendChild(textSpan)
+        wrap.appendChild(btn)
+        div.appendChild(wrap)
+      } else {
+        div.textContent = role === 'user' ? `> ${text}` : text
+      }
+
       hist.appendChild(div)
       hist.scrollTop = hist.scrollHeight
     }
