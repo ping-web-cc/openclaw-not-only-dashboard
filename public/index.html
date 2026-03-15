@@ -1254,8 +1254,11 @@
     }
 
     function getTtsSettings() {
-      const provider = document.querySelector('input[name="tts-provider"]:checked')?.value || 'browser'
       const voice    = getEffectiveVoice()
+      // If a specific OpenAI voice is selected, always use OpenAI TTS
+      const provider = voice
+        ? 'openai'
+        : (document.querySelector('input[name="tts-provider"]:checked')?.value || 'browser')
       const model    = document.getElementById('tts-model')?.value || 'tts-1'
       const mute     = document.getElementById('tts-mute')?.checked || false
       return { provider, voice, model, mute }
