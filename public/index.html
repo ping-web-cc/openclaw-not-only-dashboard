@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenClaw Pit Stop</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231a0a2e'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle' font-family='serif'%3E🦞%3C/text%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: '#0F0F23',
+            surface: '#16183a',
+            surface2: '#1e2150',
+            primary: '#7C3AED',
+            accent: '#F43F5E',
+          },
+          fontFamily: {
+            mono: ['Fira Code', 'monospace'],
+            sans: ['Fira Sans', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-glow: rgba(124,58,237,0.5);
+      --accent: #F43F5E;
+      --bg: #0F0F23;
+      --surface: #16183a;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+
+    /* CRT scanlines */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 9999;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+      pointer-events: none;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 3px; height: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 2px; }
+
+    .neon { text-shadow: 0 0 8px var(--primary), 0 0 20px var(--primary-glow); }
+    .neon-border { box-shadow: 0 0 12px var(--primary-glow), inset 0 0 12px rgba(124,58,237,0.08); }
+    .neon-accent { text-shadow: 0 0 8px var(--accent), 0 0 20px rgba(244,63,94,0.5); }
+
+    /* Agent card */
+    .agent-card {
+      transition: all 0.18s ease;
+      border: 1px solid rgba(124,58,237,0.18);
+      cursor: pointer;
+    }
+    .agent-card:hover { border-color: rgba(124,58,237,0.6); background: rgba(124,58,237,0.1); }
+    .agent-card.active {
+      border-color: var(--primary);
+      background: rgba(124,58,237,0.18);
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    /* Tabs */
+    .tab-btn {
+      transition: all 0.15s ease;
+      border-bottom: 2px solid transparent;
+      color: #64748b;
+      cursor: pointer;
+    }
+    .tab-btn:hover { color: #a78bfa; }
+    .tab-btn.active { border-bottom-color: var(--primary); color: #a78bfa; }
+
+    /* File tabs */
+    .file-tab-btn {
+      transition: all 0.15s ease;
+      color: #64748b;
+      cursor: pointer;
+    }
+    .file-tab-btn:hover { color: #a78bfa; }
+    .file-tab-btn.active { background: rgba(124,58,237,0.25); color: #c4b5fd; }
+
+    /* Textarea editor */
+    .md-editor {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(124,58,237,0.25);
+      color: #e2e8f0;
+      font-family: 'Fira Code', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .md-editor:focus { border-color: var(--primary); box-shadow: 0 0 8px var(--primary-glow); }
+    .md-editor::placeholder { color: #475569; }
+
+    /* Chat message */
+    .chat-msg-user { background: rgba(124,58,237,0.2); border-left: 2px solid var(--primary); }
+    .chat-msg-agent { background: rgba(255,255,255,0.04); border-left: 2px solid #475569; }
+
+    /* Voice button pulse */
+    @keyframes voice-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0.7); }
+      50% { box-shadow: 0 0 0 12px rgba(244,63,94,0); }
+    }
+    .voice-active { animation: voice-pulse 1s infinite; border-color: var(--accent) !important; }
+
+    /* Status badges */
+    .badge-ok     { color: #10b981; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+    .badge-error  { color: #ef4444; background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.3); }
+    .badge-run    { color: #f59e0b; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); }
+    .badge-idle   { color: #64748b; background: rgba(100,116,139,0.1); border: 1px solid rgba(100,116,139,0.25); }
+    .badge-off    { color: #475569; background: rgba(71,85,105,0.1);  border: 1px solid rgba(71,85,105,0.25); }
+
+    /* Pipeline node */
+    .pipe-node {
+      border: 1px solid rgba(124,58,237,0.3);
+      transition: all 0.2s;
+    }
+    .pipe-node.pipe-ok    { border-color: rgba(16,185,129,0.5); }
+    .pipe-node.pipe-error { border-color: rgba(239,68,68,0.5); }
+    .pipe-node.pipe-run   { border-color: rgba(245,158,11,0.5); box-shadow: 0 0 10px rgba(245,158,11,0.3); }
+
+    /* Cron toggle */
+    .toggle-switch {
+      width: 36px; height: 20px;
+      background: #374151;
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle-switch.on { background: var(--primary); }
+    .toggle-switch::after {
+      content: '';
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 3px; left: 3px;
+      transition: left 0.2s;
+    }
+    .toggle-switch.on::after { left: 19px; }
+
+    /* Character avatar color dot */
+    .color-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Three.js canvas */
+    #three-canvas { display: block; width: 100%; height: 100%; }
+
+    /* Character name badge */
+    #stage-name-badge {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(to top, rgba(15,15,35,0.95) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* Glitch animation for title */
+    @keyframes glitch {
+      0%   { clip-path: inset(40% 0 61% 0); transform: skew(0.3deg); }
+      20%  { clip-path: inset(92% 0 1%  0); transform: skew(-0.5deg); }
+      40%  { clip-path: inset(43% 0 1%  0); transform: skew(0.1deg); }
+      60%  { clip-path: inset(25% 0 58% 0); transform: skew(-0.2deg); }
+      80%  { clip-path: inset(54% 0 7%  0); transform: skew(0.4deg); }
+      100% { clip-path: inset(58% 0 43% 0); transform: skew(-0.3deg); }
+    }
+    .glitch-title { position: relative; }
+    .glitch-title::before, .glitch-title::after {
+      content: attr(data-text);
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+    .glitch-title::before {
+      color: #00ffff;
+      animation: glitch 3s infinite linear alternate-reverse;
+      left: 2px;
+    }
+    .glitch-title::after {
+      color: #ff00ff;
+      animation: glitch 2s infinite linear alternate-reverse;
+      left: -2px;
+    }
+
+    /* Mobile bottom nav */
+    #mobile-nav button.active { color: #a78bfa; }
+
+    /* VR button */
+    #vr-btn { display: none; }
+
+    /* ── Sidebar collapse / resize ── */
+    .sidebar-collapsed { width: 0 !important; overflow: hidden; padding: 0 !important; }
+    .sidebar-collapsed > * { display: none; }
+
+    /* Resize handle */
+    .resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      position: relative;
+      transition: background 0.15s;
+      z-index: 20;
+    }
+    .resize-handle:hover, .resize-handle.dragging { background: var(--primary-glow); }
+    .resize-handle::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 32px;
+      background: rgba(124,58,237,0.4);
+      border-radius: 1px;
+    }
+
+    /* Collapse toggle buttons */
+    .sidebar-toggle {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 3px;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .sidebar-toggle:hover { color: #a78bfa; border-color: rgba(124,58,237,0.6); background: rgba(124,58,237,0.1); }
+
+    /* Collapsed overlay buttons (re-open handle) */
+    .sidebar-reopen {
+      writing-mode: vertical-rl;
+      cursor: pointer;
+      padding: 10px 3px;
+      font-size: 10px;
+      font-family: 'Fira Code', monospace;
+      color: #475569;
+      border: 1px solid rgba(124,58,237,0.2);
+      background: rgba(22,24,58,0.6);
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .sidebar-reopen:hover { color: #a78bfa; border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.1); }
+    .sidebar-reopen.hidden { display: none; }
+  </style>
+</head>
+
+<body class="bg-bg text-gray-200 font-sans flex flex-col" style="height:100dvh;">
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="flex items-center justify-between px-3 py-2 border-b border-purple-900/30 bg-surface/80 backdrop-blur flex-shrink-0 z-10">
+    <div class="flex items-center gap-2.5">
+      <!-- Logo -->
+      <div class="w-7 h-7 rounded bg-primary/20 border border-primary/40 flex items-center justify-center">
+        <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <h1 class="font-mono text-sm font-bold neon text-purple-300 glitch-title hidden sm:block" data-text="OPENCLAW PIT STOP">
+        OPENCLAW PIT STOP
+      </h1>
+      <h1 class="font-mono text-sm font-bold neon text-purple-300 sm:hidden">PIT STOP</h1>
+      <span class="text-xs text-gray-600 font-mono hidden md:inline" data-i18n="subtitle">試衣間</span>
+    </div>
+
+    <!-- Pipeline mini status -->
+    <div class="hidden md:flex items-center gap-1.5" id="pipeline-mini"></div>
+
+    <div class="flex items-center gap-3">
+      <div class="text-xs font-mono text-purple-400" id="clock"></div>
+      <div class="text-xs font-mono text-gray-600" id="agent-online">
+        <span id="agent-count">0</span> agents
+      </div>
+      <!-- Language toggle -->
+      <button id="locale-toggle"
+        class="px-2 py-1 text-xs font-mono border border-purple-500/40 text-purple-300 hover:bg-purple-500/10 rounded transition-colors cursor-pointer">
+        EN
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN LAYOUT ═══ -->
+  <div class="flex flex-1 overflow-hidden" id="main-layout">
+
+    <!-- ── LEFT: Agent Roster ── -->
+    <aside id="roster-panel" class="w-44 lg:w-52 border-r border-purple-900/25 bg-surface/40 overflow-y-auto flex-shrink-0 hidden md:block" style="transition: width 0.2s;">
+      <div class="p-2">
+        <div class="text-xs text-gray-600 font-mono uppercase tracking-widest px-2 py-2 flex items-center gap-1 justify-between">
+          <div class="flex items-center gap-1">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+            Agents
+          </div>
+          <button class="sidebar-toggle" id="roster-collapse-btn" title="Collapse">
+            <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+        </div>
+        <div id="agent-list" class="space-y-0.5"></div>
+      </div>
+    </aside>
+
+    <!-- Left resize handle -->
+    <div class="resize-handle hidden md:block" id="roster-resize"></div>
+
+    <!-- Left re-open strip (shown when collapsed) -->
+    <div class="sidebar-reopen hidden md:hidden" id="roster-reopen">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+      </svg>
+      <span>Agents</span>
+    </div>
+
+    <!-- ── CENTER: Stage + Chat ── -->
+    <main id="stage-panel" class="flex-1 flex flex-col overflow-hidden min-w-0">
+
+      <!-- 3D Stage -->
+      <div class="relative flex-1 min-h-0 bg-black/30" id="stage-container">
+        <canvas id="three-canvas"></canvas>
+
+        <!-- Agent name overlay -->
+        <div id="stage-name-badge" class="p-3 pb-4">
+          <div class="flex items-end justify-between">
+            <div>
+              <div class="font-mono text-xl font-bold text-white leading-tight" id="stage-name" data-i18n="selectAgent">選擇 Agent</div>
+              <div class="text-xs text-gray-400 mt-0.5" id="stage-role"></div>
+              <div class="text-xs text-purple-400 font-mono mt-0.5" id="stage-model"></div>
+              <div id="agent-voice-row" class="hidden flex items-center gap-1.5 mt-1">
+                <svg class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0a9 9 0 01-9-9 9 9 0 019-9 9 9 0 019 9 9 9 0 01-9 9z"/>
+                </svg>
+                <select id="agent-voice-select" class="bg-transparent border border-purple-900/40 text-purple-300 text-xs font-mono rounded px-1.5 py-0.5 cursor-pointer">
+                  <option value="" data-i18n="useGlobalVoice">— 使用全域設定 —</option>
+                  <option value="nova" data-i18n="voiceNova">nova（女，明亮）</option>
+                  <option value="shimmer" data-i18n="voiceShimmer">shimmer（女，柔和）</option>
+                  <option value="alloy" data-i18n="voiceAlloy">alloy（中性，清晰）</option>
+                  <option value="echo" data-i18n="voiceEcho">echo（男，穩重）</option>
+                  <option value="fable" data-i18n="voiceFable">fable（男，溫暖）</option>
+                  <option value="onyx" data-i18n="voiceOnyx">onyx（男，低沉）</option>
+                </select>
+              </div>
+            </div>
+            <div class="text-xs text-gray-600 font-mono text-right" style="pointer-events:none">
+              <div data-i18n="dragRotate">拖曳旋轉</div>
+              <div data-i18n="scrollZoom">滾輪縮放</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VR button -->
+        <button id="vr-btn" class="absolute top-3 right-3 px-2.5 py-1 text-xs font-mono border border-purple-500/50 text-purple-300 hover:bg-purple-500/20 rounded transition-colors cursor-pointer">
+          VR
+        </button>
+      </div>
+
+      <!-- Voice Chat -->
+      <div class="border-t border-purple-900/25 bg-surface/60 flex-shrink-0" style="height:188px">
+        <div class="flex h-full">
+
+          <!-- Chat history -->
+          <div class="flex-1 overflow-y-auto p-2.5 space-y-1.5" id="chat-history">
+            <div class="text-xs text-gray-600 font-mono text-center py-6" id="chat-placeholder" data-i18n="chatPlaceholder">
+              選擇 Agent 後開始對話
+            </div>
+          </div>
+
+          <!-- Input -->
+          <div class="w-40 lg:w-48 border-l border-purple-900/25 p-2 flex flex-col gap-1.5 flex-shrink-0">
+            <textarea id="chat-input"
+              class="md-editor flex-1 rounded p-2 text-xs"
+              data-i18n-ph="inputPlaceholder"
+              placeholder="輸入訊息..."
+              rows="4"></textarea>
+            <div class="flex gap-1.5">
+              <button id="voice-btn"
+                class="flex-1 py-1.5 rounded border border-accent/40 text-accent text-xs font-mono hover:bg-accent/10 transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                </svg>
+                <span id="voice-label" data-i18n="voice">語音</span>
+              </button>
+              <button id="send-btn"
+                class="flex-1 py-1.5 rounded bg-primary/70 hover:bg-primary text-white text-xs font-mono transition-colors cursor-pointer"
+                data-i18n="send">
+                發送
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- Right resize handle -->
+    <div class="resize-handle hidden lg:block" id="control-resize"></div>
+
+    <!-- Right re-open strip (shown when collapsed) -->
+    <div class="sidebar-reopen hidden lg:hidden" id="control-reopen">
+      <span data-i18n="tabSoul">靈魂</span>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </div>
+
+    <!-- ── RIGHT: Control Panel ── -->
+    <aside id="control-panel" class="w-72 lg:w-80 border-l border-purple-900/25 bg-surface/40 flex flex-col flex-shrink-0 hidden lg:flex" style="transition: width 0.2s;">
+
+      <!-- Tabs -->
+      <div class="flex border-b border-purple-900/25 flex-shrink-0 items-center">
+        <button class="tab-btn active flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="soul" data-i18n="tabSoul">靈魂</button>
+        <button class="tab-btn flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="cron" data-i18n="tabCron">排程</button>
+        <button class="tab-btn flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="pipeline">Pipeline</button>
+        <button class="tab-btn flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="settings" data-i18n="tabSettings">設定</button>
+        <button class="sidebar-toggle mr-2" id="control-collapse-btn" title="Collapse">
+          <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Soul Tab -->
+      <div class="tab-content flex-1 overflow-y-auto p-3 flex flex-col gap-2" id="tab-soul">
+        <!-- File selector -->
+        <div class="flex gap-1 flex-wrap" id="file-tabs">
+          <button class="file-tab-btn active px-2 py-1 text-xs font-mono rounded" data-file="soul.md">soul.md</button>
+          <button class="file-tab-btn px-2 py-1 text-xs font-mono rounded" data-file="identity.md">identity.md</button>
+          <button class="file-tab-btn px-2 py-1 text-xs font-mono rounded" data-file="user.md">user.md</button>
+          <button class="file-tab-btn px-2 py-1 text-xs font-mono rounded" data-file="CLAUDE.md">CLAUDE.md</button>
+        </div>
+
+        <!-- File status indicator -->
+        <div class="text-xs font-mono text-gray-600" id="file-status" data-i18n="fileStatusDefault">請選擇 Agent</div>
+
+        <!-- Editor -->
+        <textarea id="file-editor"
+          class="md-editor w-full rounded p-2 flex-1"
+          style="min-height:180px; resize:vertical"
+          data-i18n-ph="editorPlaceholder"
+          placeholder="選擇 Agent 以載入文件..."></textarea>
+
+        <div class="flex items-center gap-2">
+          <button id="save-file-btn"
+            class="flex-1 py-1.5 text-xs font-mono bg-primary/60 hover:bg-primary rounded text-white transition-colors cursor-pointer"
+            data-i18n="save">
+            儲存
+          </button>
+          <span id="save-status" class="text-xs text-gray-500 font-mono"></span>
+        </div>
+
+        <!-- Agent quick info -->
+        <div id="agent-quick-info" class="hidden mt-2 p-2.5 rounded bg-black/30 border border-purple-900/25">
+          <div class="text-xs text-gray-500 font-mono mb-1.5" data-i18n="agentConfig">Agent 設定</div>
+          <div class="space-y-2">
+            <div>
+              <label class="text-xs text-gray-500 font-mono">Description</label>
+              <textarea id="agent-desc-editor"
+                class="md-editor w-full rounded p-1.5 mt-0.5 text-xs" rows="3"
+                placeholder="Agent description..."></textarea>
+            </div>
+            <button id="save-agent-btn"
+              class="w-full py-1 text-xs font-mono border border-purple-500/40 text-purple-300 hover:bg-purple-500/20 rounded transition-colors cursor-pointer"
+              data-i18n="updateAgent">
+              更新 Agent 設定
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cron Tab -->
+      <div class="tab-content hidden flex-1 overflow-y-auto" id="tab-cron">
+        <div class="p-2 border-b border-purple-900/20 flex items-center gap-2">
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input id="cron-agent-only" type="checkbox" class="accent-purple-500" checked />
+            <span class="text-xs font-mono text-gray-400" data-i18n="thisAgentOnly">只看此 Agent</span>
+          </label>
+          <input id="cron-filter" type="text"
+            class="flex-1 md-editor text-xs rounded px-2 py-1.5"
+            data-i18n-ph="filterPlaceholder"
+            placeholder="篩選名稱..." />
+        </div>
+        <div id="cron-list" class="p-2 space-y-1"></div>
+      </div>
+
+      <!-- Pipeline Tab -->
+      <div class="tab-content hidden flex-1 overflow-y-auto p-3" id="tab-pipeline">
+        <div id="pipeline-list" class="space-y-4"></div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="tab-content hidden flex-1 overflow-y-auto p-3 space-y-4" id="tab-settings">
+
+        <!-- TTS Section -->
+        <div class="space-y-2">
+          <div class="text-xs font-mono text-purple-400 uppercase tracking-wider border-b border-purple-900/30 pb-1" data-i18n="ttsSection">語音輸出 (TTS)</div>
+
+          <!-- Provider -->
+          <div class="space-y-1">
+            <label class="text-xs font-mono text-gray-500" data-i18n="ttsEngine">引擎</label>
+            <div class="flex gap-2">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="tts-provider" value="browser" class="accent-purple-500" checked />
+                <span class="text-xs font-mono text-gray-300" data-i18n="ttsBrowser">瀏覽器內建</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="tts-provider" value="openai" class="accent-purple-500" />
+                <span class="text-xs font-mono text-gray-300">OpenAI TTS</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- OpenAI Voice (shown when openai selected) -->
+          <div id="tts-openai-options" class="space-y-2 hidden">
+            <div>
+              <label class="text-xs font-mono text-gray-500" data-i18n="ttsVoiceLabel">聲音</label>
+              <select id="tts-voice" class="mt-0.5 w-full md-editor text-xs rounded px-2 py-1.5 cursor-pointer">
+                <option value="nova" data-i18n="voiceNova">nova（女，明亮）</option>
+                <option value="shimmer" data-i18n="voiceShimmer">shimmer（女，柔和）</option>
+                <option value="alloy" data-i18n="voiceAlloy">alloy（中性，清晰）</option>
+                <option value="echo" data-i18n="voiceEcho">echo（男，穩重）</option>
+                <option value="fable" data-i18n="voiceFable">fable（男，溫暖）</option>
+                <option value="onyx" data-i18n="voiceOnyx">onyx（男，低沉）</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-mono text-gray-500" data-i18n="ttsModelLabel">模型</label>
+              <select id="tts-model" class="mt-0.5 w-full md-editor text-xs rounded px-2 py-1.5 cursor-pointer">
+                <option value="tts-1" data-i18n="ttsModel1">tts-1（快速，低延遲）</option>
+                <option value="tts-1-hd" data-i18n="ttsModel2">tts-1-hd（高品質）</option>
+              </select>
+            </div>
+            <div id="tts-status" class="text-xs font-mono text-gray-600"></div>
+            <button id="tts-test-btn"
+              class="w-full py-1.5 rounded border border-purple-500/40 text-purple-300 text-xs font-mono hover:bg-purple-500/10 transition-colors cursor-pointer"
+              data-i18n="ttsTest">
+              測試語音
+            </button>
+          </div>
+
+          <!-- Mute toggle -->
+          <label class="flex items-center gap-2 cursor-pointer mt-1">
+            <input type="checkbox" id="tts-mute" class="accent-purple-500" />
+            <span class="text-xs font-mono text-gray-400" data-i18n="ttsMute">靜音（不播放語音）</span>
+          </label>
+        </div>
+
+      </div>
+
+    </aside>
+  </div>
+
+  <!-- ═══ MOBILE BOTTOM NAV ═══ -->
+  <nav id="mobile-nav" class="md:hidden flex border-t border-purple-900/30 bg-surface/90 flex-shrink-0">
+    <button class="mobile-nav-btn flex-1 py-3 text-xs font-mono text-gray-500 transition-colors" data-panel="roster">Agents</button>
+    <button class="mobile-nav-btn flex-1 py-3 text-xs font-mono text-gray-500 transition-colors active" data-panel="stage">Stage</button>
+    <button class="mobile-nav-btn flex-1 py-3 text-xs font-mono text-gray-500 transition-colors" data-panel="control">Control</button>
+  </nav>
+
+  <!-- ═══ CRON EDIT MODAL ═══ -->
+  <div id="cron-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="cron-modal-bg"></div>
+    <div class="relative w-full max-w-md rounded-lg border border-purple-500/50 bg-surface neon-border p-4 space-y-3">
+      <h3 class="font-mono text-sm text-purple-300" data-i18n="editCronJob">編輯 Cron Job</h3>
+      <input type="hidden" id="modal-job-id" />
+      <div>
+        <label class="text-xs text-gray-500 font-mono" data-i18n="cronName">名稱</label>
+        <input id="modal-job-name" type="text" class="md-editor w-full rounded px-2 py-1.5 mt-0.5 text-xs" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-mono">Schedule (cron expr)</label>
+        <input id="modal-job-schedule" type="text" class="md-editor w-full rounded px-2 py-1.5 mt-0.5 text-xs font-mono" placeholder="0 8 * * *" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 font-mono">Prompt</label>
+        <textarea id="modal-job-prompt" class="md-editor w-full rounded px-2 py-1.5 mt-0.5 text-xs" rows="4"></textarea>
+      </div>
+      <div class="flex gap-2">
+        <button id="modal-save-btn" class="flex-1 py-1.5 text-xs font-mono bg-primary/70 hover:bg-primary rounded text-white transition-colors cursor-pointer" data-i18n="save">儲存</button>
+        <button id="modal-cancel-btn" class="flex-1 py-1.5 text-xs font-mono border border-gray-600 text-gray-400 hover:bg-gray-700/30 rounded transition-colors cursor-pointer" data-i18n="cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ USER CONFIG (optional, gitignored) ═══ -->
+  <script src="/config.js" onerror="window.PIT_STOP_CONFIG={}"></script>
+
+  <!-- ═══ THREE.JS IMPORTMAP ═══ -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three'
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+
+    // ═══════════════════════════════════════════════════════════════
+    // i18n
+    // ═══════════════════════════════════════════════════════════════
+    const LOCALES = {
+      zh: {
+        subtitle: '試衣間',
+        selectAgent: '選擇 Agent',
+        dragRotate: '拖曳旋轉',
+        scrollZoom: '滾輪縮放',
+        useGlobalVoice: '— 使用全域設定 —',
+        voiceNova: 'nova（女，明亮）',
+        voiceShimmer: 'shimmer（女，柔和）',
+        voiceAlloy: 'alloy（中性，清晰）',
+        voiceEcho: 'echo（男，穩重）',
+        voiceFable: 'fable（男，溫暖）',
+        voiceOnyx: 'onyx（男，低沉）',
+        chatPlaceholder: '選擇 Agent 後開始對話',
+        inputPlaceholder: '輸入訊息...',
+        voice: '語音',
+        listening: '聆聽中',
+        send: '發送',
+        tabSoul: '靈魂',
+        tabCron: '排程',
+        tabSettings: '設定',
+        fileStatusDefault: '請選擇 Agent',
+        editorPlaceholder: '選擇 Agent 以載入文件...',
+        save: '儲存',
+        agentConfig: 'Agent 設定',
+        updateAgent: '更新 Agent 設定',
+        thisAgentOnly: '只看此 Agent',
+        filterPlaceholder: '篩選名稱...',
+        ttsSection: '語音輸出 (TTS)',
+        ttsEngine: '引擎',
+        ttsBrowser: '瀏覽器內建',
+        ttsVoiceLabel: '聲音',
+        ttsModelLabel: '模型',
+        ttsModel1: 'tts-1（快速，低延遲）',
+        ttsModel2: 'tts-1-hd（高品質）',
+        ttsTest: '測試語音',
+        ttsMute: '靜音（不播放語音）',
+        ttsTestText: '嗨，我是你的 AI 助手，語音測試成功。',
+        editCronJob: '編輯 Cron Job',
+        cronName: '名稱',
+        cancel: '取消',
+        selectAgentFirst: '請先選擇一個 Agent',
+        loading: '載入中...',
+        fileNotExist: '（不存在，儲存後新增）',
+        noCronJobs: '無排程任務',
+        statusOff: '停用',
+        statusOk: '成功',
+        statusError: '失敗',
+        statusIdle: '待機',
+        statusRun: '執行中',
+        notFound: '未找到',
+        saving: '儲存中...',
+        saved: '✓ 已儲存',
+        saveFailed: '✗ 失敗',
+        backendError: '⚠ 後端連線失敗，請確認 server.js 已啟動',
+        connectionFailed: '連線失敗：',
+        vrFailed: 'VR 啟動失敗：',
+      },
+      en: {
+        subtitle: 'Fitting Room',
+        selectAgent: 'Select Agent',
+        dragRotate: 'Drag to Rotate',
+        scrollZoom: 'Scroll to Zoom',
+        useGlobalVoice: '— Use Global Setting —',
+        voiceNova: 'nova (F, bright)',
+        voiceShimmer: 'shimmer (F, soft)',
+        voiceAlloy: 'alloy (N, clear)',
+        voiceEcho: 'echo (M, steady)',
+        voiceFable: 'fable (M, warm)',
+        voiceOnyx: 'onyx (M, deep)',
+        chatPlaceholder: 'Select an Agent to start chatting',
+        inputPlaceholder: 'Type a message...',
+        voice: 'Voice',
+        listening: 'Listening',
+        send: 'Send',
+        tabSoul: 'Soul',
+        tabCron: 'Cron',
+        tabSettings: 'Settings',
+        fileStatusDefault: 'Select an Agent',
+        editorPlaceholder: 'Select an Agent to load files...',
+        save: 'Save',
+        agentConfig: 'Agent Config',
+        updateAgent: 'Update Agent Config',
+        thisAgentOnly: 'This Agent Only',
+        filterPlaceholder: 'Filter by name...',
+        ttsSection: 'Voice Output (TTS)',
+        ttsEngine: 'Engine',
+        ttsBrowser: 'Browser Built-in',
+        ttsVoiceLabel: 'Voice',
+        ttsModelLabel: 'Model',
+        ttsModel1: 'tts-1 (fast, low latency)',
+        ttsModel2: 'tts-1-hd (high quality)',
+        ttsTest: 'Test Voice',
+        ttsMute: 'Mute (no voice playback)',
+        ttsTestText: 'Hi, I am your AI assistant. Voice test successful.',
+        editCronJob: 'Edit Cron Job',
+        cronName: 'Name',
+        cancel: 'Cancel',
+        selectAgentFirst: 'Please select an Agent first',
+        loading: 'Loading...',
+        fileNotExist: '(not found, will create on save)',
+        noCronJobs: 'No scheduled tasks',
+        statusOff: 'Off',
+        statusOk: 'OK',
+        statusError: 'Error',
+        statusIdle: 'Idle',
+        statusRun: 'Running',
+        notFound: 'Not found',
+        saving: 'Saving...',
+        saved: '✓ Saved',
+        saveFailed: '✗ Failed',
+        backendError: '⚠ Backend connection failed. Make sure server.js is running.',
+        connectionFailed: 'Connection failed: ',
+        vrFailed: 'VR launch failed: ',
+      }
+    }
+
+    let currentLocale = localStorage.getItem('oc-locale') || 'zh'
+
+    function t(key) {
+      return LOCALES[currentLocale]?.[key] ?? LOCALES.zh[key] ?? key
+    }
+
+    function applyLocale() {
+      document.documentElement.lang = currentLocale === 'zh' ? 'zh-Hant' : 'en'
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n)
+      })
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        el.placeholder = t(el.dataset.i18nPh)
+      })
+      const toggle = document.getElementById('locale-toggle')
+      if (toggle) toggle.textContent = currentLocale === 'zh' ? 'EN' : '中文'
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // AGENT COLOR MAP  (loaded from config.js, falls back to defaults)
+    // ═══════════════════════════════════════════════════════════════
+    const DEFAULT_COLORS = [
+      '#7C3AED','#3B82F6','#10B981','#EF4444','#F59E0B',
+      '#6366F1','#EC4899','#06B6D4','#F97316','#84CC16',
+      '#A78BFA','#14B8A6','#FB7185','#FBBF24','#D97706',
+      '#38BDF8','#818CF8','#94A3B8','#67E8F9',
+    ]
+
+    // Derive a consistent color from agent id — no config needed
+    function getTheme(id, agent) {
+      let hash = 0
+      for (const c of id) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff
+      const color = DEFAULT_COLORS[hash % DEFAULT_COLORS.length]
+      const label = agent?.description || agent?.name || id
+      return { color, label }
+    }
+
+    function hexToThreeColor(hex) {
+      return new THREE.Color(hex)
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+    const state = {
+      agents: [],
+      activeAgent: null,
+      activeFile: 'soul.md',
+      agentData: {},      // { [id]: { agent, files } }
+      cronJobs: [],
+      cronRuns: {},
+      chatHistory: [],
+      isListening: false,
+      editingJobId: null,
+      pitConfig: {},      // loaded from /api/pit-config
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // API
+    // ═══════════════════════════════════════════════════════════════
+    const api = {
+      async getConfig() {
+        const r = await fetch('/api/config'); return r.json()
+      },
+      async getAgent(id) {
+        const r = await fetch(`/api/agent/${id}`); return r.json()
+      },
+      async saveFile(id, filename, content) {
+        const r = await fetch(`/api/agent/${id}/file`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename, content })
+        }); return r.json()
+      },
+      async patchAgent(id, data) {
+        const r = await fetch(`/api/agent/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        }); return r.json()
+      },
+      async getCron() {
+        const r = await fetch('/api/cron'); return r.json()
+      },
+      async saveCron(jobs) {
+        const r = await fetch('/api/cron', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jobs)
+        }); return r.json()
+      },
+      async toggleCron(jobId) {
+        const r = await fetch(`/api/cron/${jobId}/toggle`, { method: 'PATCH' })
+        return r.json()
+      },
+      async getCronRuns() {
+        const r = await fetch('/api/cron/runs'); return r.json()
+      },
+      async chat(agentId, message) {
+        const r = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId, message })
+        }); return r.json()
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // THREE.JS STAGE
+    // ═══════════════════════════════════════════════════════════════
+    let renderer, scene, camera, controls, character, idleClock, particleSystem
+
+    function initThree() {
+      const canvas = document.getElementById('three-canvas')
+      const container = document.getElementById('stage-container')
+
+      scene = new THREE.Scene()
+      scene.background = new THREE.Color(0x090912)
+      scene.fog = new THREE.FogExp2(0x090912, 0.04)
+
+      const w = container.clientWidth, h = container.clientHeight
+      camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 100)
+      camera.position.set(0, 1.5, 5.5)
+
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      renderer.setSize(w, h)
+      renderer.shadowMap.enabled = true
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.1
+
+      controls = new OrbitControls(camera, renderer.domElement)
+      controls.target.set(0, 1.5, 0)
+      controls.enableDamping = true
+      controls.dampingFactor = 0.06
+      controls.minDistance = 2.5
+      controls.maxDistance = 9
+      controls.minPolarAngle = 0.15
+      controls.maxPolarAngle = Math.PI - 0.15
+      controls.autoRotate = true
+      controls.autoRotateSpeed = 1.2
+
+      // Lighting
+      scene.add(new THREE.AmbientLight(0x111133, 0.8))
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
+      keyLight.position.set(3, 5, 3)
+      keyLight.castShadow = true
+      scene.add(keyLight)
+
+      const fillLight = new THREE.DirectionalLight(0x6644ff, 0.6)
+      fillLight.position.set(-3, 2, -2)
+      scene.add(fillLight)
+
+      const rimLight = new THREE.DirectionalLight(0x00ffff, 0.3)
+      rimLight.position.set(0, 3, -5)
+      scene.add(rimLight)
+
+      // Grid
+      const grid = new THREE.GridHelper(14, 28, 0x2d1b69, 0x1a1040)
+      grid.position.y = -1.68
+      scene.add(grid)
+
+      // Stage platform
+      const stageMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.3, 1.5, 0.22, 48),
+        new THREE.MeshStandardMaterial({
+          color: 0x1a1040,
+          emissive: 0x7C3AED,
+          emissiveIntensity: 0.25,
+          metalness: 0.7,
+          roughness: 0.3,
+        })
+      )
+      stageMesh.position.y = -1.68
+      stageMesh.receiveShadow = true
+      scene.add(stageMesh)
+
+      // Stage ring glow
+      const ringGeo = new THREE.TorusGeometry(1.35, 0.025, 16, 80)
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: 0x7C3AED, emissive: 0x7C3AED, emissiveIntensity: 3,
+        transparent: true, opacity: 0.8
+      })
+      const ring = new THREE.Mesh(ringGeo, ringMat)
+      ring.rotation.x = Math.PI / 2
+      ring.position.y = -1.56
+      scene.add(ring)
+
+      // Default placeholder character
+      idleClock = new THREE.Clock()
+      buildCharacter('#7C3AED')
+
+      // Particle system (ambient dust)
+      buildParticles()
+
+      // WebXR check
+      if (navigator.xr) {
+        navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+          if (supported) document.getElementById('vr-btn').style.display = 'block'
+        })
+      }
+
+      window.addEventListener('resize', onResize)
+      animate()
+    }
+
+    function onResize() {
+      const container = document.getElementById('stage-container')
+      const w = container.clientWidth, h = container.clientHeight
+      camera.aspect = w / h
+      camera.updateProjectionMatrix()
+      renderer.setSize(w, h)
+    }
+
+    // Build / rebuild character for active agent
+    function buildCharacter(colorHex) {
+      if (character) {
+        scene.remove(character)
+        character.traverse(c => {
+          if (c.geometry) c.geometry.dispose()
+          if (c.material) c.material.dispose()
+        })
+      }
+
+      const color = new THREE.Color(colorHex)
+      const mainMat = () => new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.35,
+        metalness: 0.5,
+        roughness: 0.25,
+      })
+      const glowMat = () => new THREE.MeshStandardMaterial({
+        color, emissive: color, emissiveIntensity: 1.5,
+        transparent: true, opacity: 0.9,
+      })
+      const darkMat = new THREE.MeshStandardMaterial({
+        color: 0x050510, emissive: color, emissiveIntensity: 0.6,
+        metalness: 0.8, roughness: 0.1,
+      })
+
+      character = new THREE.Group()
+
+      // HEAD
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.48, 32, 32), mainMat())
+      head.position.y = 2.78
+      head.castShadow = true
+      character.add(head)
+
+      // Visor / face screen
+      const visor = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+        darkMat
+      )
+      visor.rotation.x = -Math.PI / 4
+      visor.position.set(0, 2.72, 0.28)
+      character.add(visor)
+
+      // Eyes
+      for (const sx of [-0.18, 0.18]) {
+        const eye = new THREE.Mesh(
+          new THREE.SphereGeometry(0.075, 16, 16),
+          new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: colorHex, emissiveIntensity: 3 })
+        )
+        eye.position.set(sx, 2.82, 0.42)
+        character.add(eye)
+      }
+
+      // Neck
+      character.add(mkMesh(new THREE.CylinderGeometry(0.14, 0.18, 0.22, 16), mainMat(), [0, 2.2, 0]))
+
+      // TORSO
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.3, 0.6), mainMat())
+      torso.position.y = 1.45
+      torso.castShadow = true
+      character.add(torso)
+
+      // Chest panel
+      const panel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.38, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0x000011, emissive: colorHex, emissiveIntensity: 1.2 })
+      )
+      panel.position.set(0, 1.52, 0.32)
+      character.add(panel)
+
+      // Shoulder pads
+      for (const sx of [-0.65, 0.65]) {
+        const sp = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 16, 16),
+          mainMat()
+        )
+        sp.position.set(sx, 1.92, 0)
+        sp.scale.y = 0.7
+        character.add(sp)
+      }
+
+      // ARMS
+      addArm(character, -1, color, mainMat, glowMat)
+      addArm(character, +1, color, mainMat, glowMat)
+
+      // HIPS
+      character.add(mkMesh(new THREE.BoxGeometry(0.92, 0.32, 0.55), mainMat(), [0, 0.56, 0]))
+
+      // LEGS
+      addLeg(character, -1, color, mainMat)
+      addLeg(character, +1, color, mainMat)
+
+      // Aura ring
+      const aura = new THREE.Mesh(
+        new THREE.TorusGeometry(0.7, 0.018, 12, 60),
+        new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 4, transparent: true, opacity: 0.6 })
+      )
+      aura.rotation.x = Math.PI / 2
+      aura.position.y = 1.5
+      character.add(aura)
+
+      // Update particle colors
+      updateParticleColor(color)
+
+      scene.add(character)
+    }
+
+    function mkMesh(geo, mat, pos = [0,0,0]) {
+      const m = new THREE.Mesh(geo, mat)
+      m.position.set(...pos)
+      m.castShadow = true
+      return m
+    }
+
+    function addArm(group, side, color, mainMat, glowMat) {
+      const x = side * 0.72
+      // Upper
+      const ua = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.56, 8, 12), mainMat())
+      ua.position.set(x + side * 0.02, 1.52, 0)
+      ua.rotation.z = side * 0.18
+      ua.castShadow = true
+      group.add(ua)
+      // Lower
+      const la = new THREE.Mesh(new THREE.CapsuleGeometry(0.105, 0.52, 8, 12), mainMat())
+      la.position.set(x + side * 0.08, 0.88, 0)
+      la.rotation.z = side * 0.28
+      la.castShadow = true
+      group.add(la)
+      // Hand glow
+      const hand = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: color, emissiveIntensity: 2, transparent: true, opacity: 0.85 })
+      )
+      hand.position.set(x + side * 0.14, 0.38, 0)
+      group.add(hand)
+    }
+
+    function addLeg(group, side, color, mainMat) {
+      const x = side * 0.28
+      const ul = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.68, 8, 12), mainMat())
+      ul.position.set(x, 0.05, 0)
+      ul.castShadow = true
+      group.add(ul)
+      const ll = new THREE.Mesh(new THREE.CapsuleGeometry(0.135, 0.65, 8, 12), mainMat())
+      ll.position.set(x, -0.78, 0)
+      ll.castShadow = true
+      group.add(ll)
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.52), mainMat())
+      foot.position.set(x, -1.44, 0.1)
+      foot.castShadow = true
+      group.add(foot)
+    }
+
+    function buildParticles() {
+      const count = 120
+      const geo = new THREE.BufferGeometry()
+      const pos = new Float32Array(count * 3)
+      for (let i = 0; i < count; i++) {
+        const r = 2.5 + Math.random() * 3
+        const theta = Math.random() * Math.PI * 2
+        const y = -1.5 + Math.random() * 5
+        pos[i * 3]     = Math.cos(theta) * r
+        pos[i * 3 + 1] = y
+        pos[i * 3 + 2] = Math.sin(theta) * r
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+      particleSystem = new THREE.Points(
+        geo,
+        new THREE.PointsMaterial({ color: 0x7C3AED, size: 0.04, transparent: true, opacity: 0.6 })
+      )
+      scene.add(particleSystem)
+    }
+
+    function updateParticleColor(threeColor) {
+      if (particleSystem) particleSystem.material.color = threeColor
+    }
+
+    function animate() {
+      requestAnimationFrame(animate)
+      const t = idleClock.getElapsedTime()
+      if (character) {
+        character.position.y = Math.sin(t * 1.4) * 0.06
+        character.rotation.y += 0
+      }
+      if (particleSystem) {
+        particleSystem.rotation.y += 0.001
+      }
+      controls.update()
+      renderer.render(scene, camera)
+    }
+
+    // Swap character with animation
+    function swapCharacter(colorHex) {
+      controls.autoRotate = true
+      // Quick flash
+      buildCharacter(colorHex)
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // VOICE
+    // ═══════════════════════════════════════════════════════════════
+    let recognition = null
+
+    function initVoice() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SpeechRecognition) return
+
+      recognition = new SpeechRecognition()
+      recognition.lang = 'zh-TW'
+      recognition.interimResults = false
+      recognition.maxAlternatives = 1
+
+      recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript
+        document.getElementById('chat-input').value = text
+        stopListening()
+        sendMessage()
+      }
+      recognition.onend = () => stopListening()
+      recognition.onerror = () => stopListening()
+    }
+
+    function startListening() {
+      if (!recognition || !state.activeAgent) return
+      state.isListening = true
+      recognition.start()
+      const btn = document.getElementById('voice-btn')
+      btn.classList.add('voice-active')
+      document.getElementById('voice-label').textContent = t('listening')
+    }
+
+    function stopListening() {
+      state.isListening = false
+      recognition?.stop()
+      const btn = document.getElementById('voice-btn')
+      btn.classList.remove('voice-active')
+      document.getElementById('voice-label').textContent = t('voice')
+    }
+
+    // ─── Agent voice bindings (server-side) ───────────────────────────────
+    // state.pitConfig holds the full pit-stop-config.json
+    // { agentVoices: { agentId: voice } }
+
+    async function loadPitConfig() {
+      try {
+        const d = await fetch('/api/pit-config').then(r => r.json())
+        state.pitConfig = d
+      } catch { state.pitConfig = {} }
+    }
+
+    async function setAgentVoice(agentId, voice) {
+      const voices = { ...(state.pitConfig.agentVoices || {}) }
+      if (voice) voices[agentId] = voice
+      else delete voices[agentId]
+      state.pitConfig.agentVoices = voices
+      await fetch('/api/pit-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentVoices: voices }),
+      })
+    }
+
+    function getAgentVoices() {
+      return state.pitConfig?.agentVoices || {}
+    }
+
+    function getEffectiveVoice() {
+      const agentId = state.activeAgent?.id
+      if (agentId) {
+        const bound = state.pitConfig?.agentVoices?.[agentId]
+        if (bound) return bound
+      }
+      return document.getElementById('tts-voice')?.value || 'nova'
+    }
+
+    function getTtsSettings() {
+      const provider = document.querySelector('input[name="tts-provider"]:checked')?.value || 'browser'
+      const voice    = getEffectiveVoice()
+      const model    = document.getElementById('tts-model')?.value || 'tts-1'
+      const mute     = document.getElementById('tts-mute')?.checked || false
+      return { provider, voice, model, mute }
+    }
+
+    async function speak(text) {
+      if (!text) return
+      const { provider, voice, model, mute } = getTtsSettings()
+      if (mute) return
+
+      if (provider === 'openai') {
+        try {
+          const setStatus = s => { const el = document.getElementById('tts-status'); if (el) el.textContent = s }
+          const res = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voice, model }),
+          })
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            setStatus(`⚠ ${err.error || res.statusText}`)
+            return
+          }
+          setStatus('')
+          const blob = await res.blob()
+          const url  = URL.createObjectURL(blob)
+          const audio = new Audio(url)
+          audio.onended = () => URL.revokeObjectURL(url)
+          audio.play()
+        } catch (e) {
+          console.warn('OpenAI TTS failed:', e)
+        }
+        return
+      }
+
+      // Browser TTS fallback
+      if (!window.speechSynthesis) return
+      window.speechSynthesis.cancel()
+      const utt = new SpeechSynthesisUtterance(text)
+      utt.lang = 'zh-TW'
+      utt.rate = 1.0
+      window.speechSynthesis.speak(utt)
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CHAT
+    // ═══════════════════════════════════════════════════════════════
+    async function sendMessage() {
+      const input = document.getElementById('chat-input')
+      const msg = input.value.trim()
+      if (!msg) return
+
+      addChatBubble('user', msg)
+      input.value = ''
+
+      if (!state.activeAgent) {
+        addChatBubble('system', t('selectAgentFirst'))
+        return
+      }
+
+      addChatBubble('thinking', '...')
+
+      try {
+        const res = await api.chat(state.activeAgent.id, msg)
+        removeLast()
+        if (res.error) {
+          addChatBubble('system', `⚠ ${res.hint || res.error}`)
+        } else {
+          const reply = res.reply || res.message || res.response || res.content || JSON.stringify(res)
+          addChatBubble('agent', reply)
+          speak(reply.slice(0, 200))
+        }
+      } catch (e) {
+        removeLast()
+        addChatBubble('system', t('connectionFailed') + e.message)
+      }
+    }
+
+    function addChatBubble(role, text) {
+      const hist = document.getElementById('chat-history')
+      const placeholder = document.getElementById('chat-placeholder')
+      if (placeholder) placeholder.remove()
+
+      const div = document.createElement('div')
+      div.className = `p-2 rounded text-xs leading-relaxed font-mono ${
+        role === 'user'    ? 'chat-msg-user text-purple-100' :
+        role === 'agent'   ? 'chat-msg-agent text-gray-300' :
+        role === 'thinking'? 'chat-msg-agent text-gray-600 italic' :
+                             'text-gray-500 text-center py-1'
+      }`
+      div.dataset.role = role
+      div.textContent = role === 'user' ? `> ${text}` : text
+      hist.appendChild(div)
+      hist.scrollTop = hist.scrollHeight
+    }
+
+    function removeLast() {
+      const hist = document.getElementById('chat-history')
+      const last = hist.lastElementChild
+      if (last && last.dataset.role === 'thinking') last.remove()
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UI: AGENT ROSTER
+    // ═══════════════════════════════════════════════════════════════
+    function renderAgentList() {
+      const list = document.getElementById('agent-list')
+      list.innerHTML = ''
+
+      for (const agent of state.agents) {
+        const theme = getTheme(agent.id, agent)
+        const isActive = state.activeAgent?.id === agent.id
+
+        const card = document.createElement('div')
+        card.className = `agent-card rounded px-2 py-1.5 flex items-center gap-2 ${isActive ? 'active' : ''}`
+        card.dataset.id = agent.id
+        card.innerHTML = `
+          <div class="color-dot" style="background:${theme.color}; box-shadow:0 0 6px ${theme.color}"></div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-mono font-medium text-gray-200 truncate">${agent.id}</div>
+            <div class="text-xs text-gray-500 truncate" style="font-size:10px">${theme.label}</div>
+          </div>
+        `
+        card.addEventListener('click', () => selectAgent(agent.id))
+        list.appendChild(card)
+      }
+    }
+
+    async function selectAgent(id) {
+      const agent = state.agents.find(a => a.id === id)
+      if (!agent) return
+
+      state.activeAgent = agent
+      const theme = getTheme(id, agent)
+
+      // Update Three.js stage
+      swapCharacter(theme.color)
+
+      // Update overlay
+      document.getElementById('stage-name').textContent = agent.id
+      document.getElementById('stage-name').style.color = theme.color
+      document.getElementById('stage-role').textContent = agent.description || theme.label
+      document.getElementById('stage-model').textContent = agent.model || ''
+
+      // Sync agent voice selector
+      const voiceRow = document.getElementById('agent-voice-row')
+      const voiceSel = document.getElementById('agent-voice-select')
+      voiceRow.classList.remove('hidden')
+      voiceSel.value = getAgentVoices()[agent.id] || ''
+
+      // Re-render roster (highlight)
+      renderAgentList()
+
+      // Load agent files (lazy)
+      if (!state.agentData[id]) {
+        const data = await api.getAgent(id)
+        state.agentData[id] = data
+      }
+
+      renderSoulPanel()
+      updatePipelineMini()
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UI: SOUL PANEL
+    // ═══════════════════════════════════════════════════════════════
+    function renderSoulPanel() {
+      const id = state.activeAgent?.id
+      if (!id) return
+
+      const data = state.agentData[id]
+      if (!data) {
+        document.getElementById('file-status').textContent = t('loading')
+        return
+      }
+
+      const files = data.files || {}
+      const filename = state.activeFile
+      const content = files[filename]
+
+      const fileStatus = document.getElementById('file-status')
+      if (content !== null && content !== undefined) {
+        fileStatus.textContent = `${filename} ✓`
+        fileStatus.className = 'text-xs font-mono text-green-500'
+      } else {
+        fileStatus.textContent = `${filename} ${t('fileNotExist')}`
+        fileStatus.className = 'text-xs font-mono text-gray-600'
+      }
+
+      document.getElementById('file-editor').value = content || ''
+
+      // Agent quick info
+      const qi = document.getElementById('agent-quick-info')
+      qi.classList.remove('hidden')
+      document.getElementById('agent-desc-editor').value = data.agent?.description || ''
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UI: CRON LIST
+    // ═══════════════════════════════════════════════════════════════
+    function getScheduleExpr(job) {
+      if (!job.schedule) return ''
+      if (typeof job.schedule === 'string') return job.schedule
+      return job.schedule.expr || job.schedule.kind || ''
+    }
+
+    function renderCronList(filter = '') {
+      const list = document.getElementById('cron-list')
+      list.innerHTML = ''
+
+      const agentOnly = document.getElementById('cron-agent-only')?.checked
+      const activeId  = state.activeAgent?.id
+
+      let jobs = state.cronJobs
+      // agentId field (not agent)
+      if (agentOnly && activeId) {
+        jobs = jobs.filter(j => j.agentId === activeId)
+      }
+      if (filter) {
+        const q = filter.toLowerCase()
+        jobs = jobs.filter(j => (j.name || '').toLowerCase().includes(q))
+      }
+
+      if (jobs.length === 0) {
+        list.innerHTML = `<div class="text-xs text-gray-600 font-mono text-center py-6">${t('noCronJobs')}</div>`
+        return
+      }
+
+      for (const job of jobs) {
+        const run = state.cronRuns[job.id]
+        const status = getJobStatus(job, run)
+        const agentId = job.agentId || ''
+        const agentObj = state.agents.find(a => a.id === agentId)
+        const theme = getTheme(agentId, agentObj)
+        const schedExpr = getScheduleExpr(job)
+
+        const row = document.createElement('div')
+        row.className = 'p-2 rounded bg-black/20 border border-purple-900/20 hover:border-purple-900/40 transition-colors'
+        row.innerHTML = `
+          <div class="flex items-start gap-2">
+            <div class="color-dot mt-1 flex-shrink-0" style="background:${theme.color}"></div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-xs font-mono text-gray-300 truncate flex-1" title="${job.name || ''}">${job.name || job.id}</span>
+                <span class="px-1 py-0.5 rounded text-xs font-mono badge-${status.cls} flex-shrink-0">${status.label}</span>
+              </div>
+              <div class="flex items-center justify-between mt-1">
+                <span class="text-xs text-gray-600 font-mono">${agentId || '?'} · ${schedExpr}</span>
+                <div class="flex items-center gap-1.5">
+                  <button class="text-gray-600 hover:text-purple-300 transition-colors cursor-pointer" data-edit="${job.id}" title="Edit">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <div class="toggle-switch ${job.enabled !== false ? 'on' : ''}" data-toggle="${job.id}"></div>
+                </div>
+              </div>
+              ${run?.error ? `<div class="text-xs text-red-500/70 mt-0.5 font-mono truncate">${run.error}</div>` : ''}
+            </div>
+          </div>
+        `
+        list.appendChild(row)
+      }
+
+      // Events
+      list.querySelectorAll('[data-toggle]').forEach(el => {
+        el.addEventListener('click', async () => {
+          const jobId = el.dataset.toggle
+          await api.toggleCron(jobId)
+          const jobs = await api.getCron()
+          state.cronJobs = jobs
+          renderCronList(document.getElementById('cron-filter').value)
+        })
+      })
+      list.querySelectorAll('[data-edit]').forEach(el => {
+        el.addEventListener('click', () => openCronModal(el.dataset.edit))
+      })
+    }
+
+    function getJobStatus(job, run) {
+      if (job.enabled === false) return { cls: 'off', label: t('statusOff') }
+      // Prefer job.state (live status from openclaw) over run file
+      const st = job.state
+      if (st) {
+        if (st.lastRunStatus === 'ok')    return { cls: 'ok',  label: t('statusOk') }
+        if (st.lastRunStatus === 'error') return { cls: 'error', label: t('statusError') }
+      }
+      if (!run) return { cls: 'idle', label: t('statusIdle') }
+      if (run.status === 'ok')      return { cls: 'ok',  label: t('statusOk') }
+      if (run.status === 'error')   return { cls: 'error', label: t('statusError') }
+      if (run.action === 'started') return { cls: 'run', label: t('statusRun') }
+      return { cls: 'idle', label: t('statusIdle') }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CRON MODAL
+    // ═══════════════════════════════════════════════════════════════
+    function openCronModal(jobId) {
+      const job = state.cronJobs.find(j => j.id === jobId)
+      if (!job) return
+      state.editingJobId = jobId
+      document.getElementById('modal-job-id').value = jobId
+      document.getElementById('modal-job-name').value = job.name || ''
+      document.getElementById('modal-job-schedule').value = getScheduleExpr(job)
+      document.getElementById('modal-job-prompt').value = job.payload?.message || job.prompt || ''
+      document.getElementById('cron-modal').classList.remove('hidden')
+    }
+
+    function closeCronModal() {
+      document.getElementById('cron-modal').classList.add('hidden')
+      state.editingJobId = null
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UI: PIPELINE
+    // ═══════════════════════════════════════════════════════════════
+
+    // Pipeline definitions loaded from config.js (gitignored)
+    const PIPELINES = ((window.PIT_STOP_CONFIG || {}).pipelines) || []
+
+    function renderPipeline() {
+      const container = document.getElementById('pipeline-list')
+      container.innerHTML = ''
+
+      for (const pipeline of PIPELINES) {
+        const block = document.createElement('div')
+        block.className = 'p-3 rounded bg-black/20 border border-purple-900/20'
+        block.innerHTML = `
+          <div class="text-xs font-mono text-purple-300 mb-3">${pipeline.name}</div>
+          <div class="space-y-1.5">
+            ${pipeline.steps.map((step, i) => {
+              const job = findPipelineJob(step)
+              const run = job ? state.cronRuns[job.id] : null
+              const st = job ? getJobStatus(job, run) : { cls: 'idle', label: t('notFound') }
+              const theme = getTheme(step.agent, state.agents.find(a => a.id === step.agent))
+              return `
+                <div class="pipe-node pipe-${st.cls} rounded px-2.5 py-1.5 flex items-center gap-2">
+                  <span class="text-xs text-gray-600 font-mono w-12 flex-shrink-0">${step.time}</span>
+                  <div class="color-dot flex-shrink-0" style="background:${theme.color}"></div>
+                  <span class="text-xs font-mono text-gray-300 flex-1">${step.label}</span>
+                  <span class="text-xs text-gray-500 font-mono">${step.agent}</span>
+                  <span class="px-1.5 py-0.5 rounded text-xs font-mono badge-${st.cls} flex-shrink-0">${st.label}</span>
+                </div>
+                ${i < pipeline.steps.length - 1 ? '<div class="ml-4 text-gray-700 text-xs font-mono">↓</div>' : ''}
+              `
+            }).join('')}
+          </div>
+        `
+        container.appendChild(block)
+      }
+    }
+
+    function findPipelineJob(step) {
+      const re = new RegExp(step.jobMatch, 'i')
+      return state.cronJobs.find(j => {
+        if (j.agentId !== step.agent) return false
+        const msg = j.payload?.message || j.prompt || ''
+        return re.test(j.name || '') || re.test(msg)
+      })
+    }
+
+    function updatePipelineMini() {
+      const mini = document.getElementById('pipeline-mini')
+      if (!mini) return
+
+      const pipeline = PIPELINES[0]
+      if (!pipeline) return
+      const dots = pipeline.steps.map(step => {
+        const job = findPipelineJob(step)
+        const run = job ? state.cronRuns[job.id] : null
+        const st = job ? getJobStatus(job, run) : { cls: 'idle' }
+        const colors = { ok: '#10b981', error: '#ef4444', run: '#f59e0b', idle: '#374151', off: '#1f2937' }
+        return `<div class="w-2 h-2 rounded-full" style="background:${colors[st.cls] || colors.idle}" title="${step.label}:${st.label}"></div>`
+      }).join('')
+
+      mini.innerHTML = `
+        <span class="text-xs text-gray-600 font-mono">pipeline</span>
+        <div class="flex items-center gap-1">${dots}</div>
+      `
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TABS
+    // ═══════════════════════════════════════════════════════════════
+    function setupTabs() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'))
+          btn.classList.add('active')
+          document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden')
+
+          if (btn.dataset.tab === 'cron') renderCronList()
+          if (btn.dataset.tab === 'pipeline') renderPipeline()
+        })
+      })
+
+      document.querySelectorAll('.file-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.file-tab-btn').forEach(b => b.classList.remove('active'))
+          btn.classList.add('active')
+          state.activeFile = btn.dataset.file
+          renderSoulPanel()
+        })
+      })
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MOBILE NAV
+    // ═══════════════════════════════════════════════════════════════
+    function setupMobileNav() {
+      document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.remove('active'))
+          btn.classList.add('active')
+
+          const panel = btn.dataset.panel
+          const roster = document.getElementById('roster-panel')
+          const stage  = document.getElementById('stage-panel')
+          const control= document.getElementById('control-panel')
+
+          // On mobile: show only selected panel
+          if (window.innerWidth < 768) {
+            roster.classList.toggle('hidden', panel !== 'roster')
+            stage.classList.toggle('hidden',  panel !== 'stage')
+            if (panel === 'control') {
+              control.classList.remove('hidden')
+              control.classList.add('flex')
+            } else {
+              control.classList.add('hidden')
+              control.classList.remove('flex')
+            }
+          }
+        })
+      })
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CLOCK
+    // ═══════════════════════════════════════════════════════════════
+    function startClock() {
+      function tick() {
+        const now = new Date()
+        const h = String(now.getHours()).padStart(2, '0')
+        const m = String(now.getMinutes()).padStart(2, '0')
+        const s = String(now.getSeconds()).padStart(2, '0')
+        document.getElementById('clock').textContent = `${h}:${m}:${s}`
+      }
+      tick()
+      setInterval(tick, 1000)
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SIDEBAR COLLAPSE + RESIZE
+    // ═══════════════════════════════════════════════════════════════
+    function setupSidebars() {
+      const rosterPanel  = document.getElementById('roster-panel')
+      const controlPanel = document.getElementById('control-panel')
+      const rosterResize = document.getElementById('roster-resize')
+      const controlResize= document.getElementById('control-resize')
+      const rosterReopen = document.getElementById('roster-reopen')
+      const controlReopen= document.getElementById('control-reopen')
+
+      // ── Collapse toggles ──
+      document.getElementById('roster-collapse-btn').addEventListener('click', () => {
+        toggleSidebar(rosterPanel, rosterReopen, rosterResize, 'roster-w')
+      })
+      document.getElementById('control-collapse-btn').addEventListener('click', () => {
+        toggleSidebar(controlPanel, controlReopen, controlResize, 'control-w')
+      })
+      rosterReopen.addEventListener('click', () => {
+        expandSidebar(rosterPanel, rosterReopen, rosterResize, 'roster-w')
+      })
+      controlReopen.addEventListener('click', () => {
+        expandSidebar(controlPanel, controlReopen, controlResize, 'control-w')
+      })
+
+      // ── Drag resize: roster ──
+      setupResizeDrag(rosterResize, rosterPanel, 'horizontal-left')
+      // ── Drag resize: control ──
+      setupResizeDrag(controlResize, controlPanel, 'horizontal-right')
+    }
+
+    function toggleSidebar(panel, reopen, handle, storageKey) {
+      const isVisible = !panel.classList.contains('sidebar-collapsed')
+      if (isVisible) {
+        localStorage.setItem(storageKey, panel.style.width || panel.offsetWidth + 'px')
+        panel.classList.add('sidebar-collapsed')
+        reopen.classList.remove('hidden')
+        if (handle) handle.style.display = 'none'
+      } else {
+        expandSidebar(panel, reopen, handle, storageKey)
+      }
+      requestAnimationFrame(() => onResize())
+    }
+
+    function expandSidebar(panel, reopen, handle, storageKey) {
+      const savedW = localStorage.getItem(storageKey)
+      panel.classList.remove('sidebar-collapsed')
+      if (savedW) panel.style.width = savedW
+      reopen.classList.add('hidden')
+      if (handle) handle.style.display = ''
+      requestAnimationFrame(() => onResize())
+    }
+
+    function setupResizeDrag(handle, panel, direction) {
+      if (!handle || !panel) return
+      let startX, startW
+
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault()
+        startX = e.clientX
+        startW = panel.offsetWidth
+        handle.classList.add('dragging')
+        document.body.style.cursor = 'col-resize'
+        document.body.style.userSelect = 'none'
+
+        function onMove(e) {
+          const delta = direction === 'horizontal-left'
+            ? e.clientX - startX
+            : startX - e.clientX
+          const newW = Math.max(120, Math.min(480, startW + delta))
+          panel.style.width = newW + 'px'
+          onResize()
+        }
+        function onUp() {
+          handle.classList.remove('dragging')
+          document.body.style.cursor = ''
+          document.body.style.userSelect = ''
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
+        }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+      })
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // EVENT LISTENERS
+    // ═══════════════════════════════════════════════════════════════
+    function setupEvents() {
+      // Locale toggle
+      document.getElementById('locale-toggle').addEventListener('click', () => {
+        currentLocale = currentLocale === 'zh' ? 'en' : 'zh'
+        localStorage.setItem('oc-locale', currentLocale)
+        applyLocale()
+        // Re-render dynamic content
+        renderCronList(document.getElementById('cron-filter').value)
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab
+        if (activeTab === 'pipeline') renderPipeline()
+      })
+
+      // Chat
+      document.getElementById('send-btn').addEventListener('click', sendMessage)
+      document.getElementById('chat-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+      })
+
+      // Voice
+      document.getElementById('voice-btn').addEventListener('click', () => {
+        if (state.isListening) stopListening(); else startListening()
+      })
+
+      // File save
+      document.getElementById('save-file-btn').addEventListener('click', async () => {
+        const id = state.activeAgent?.id
+        if (!id) return
+        const content = document.getElementById('file-editor').value
+        const status = document.getElementById('save-status')
+        status.textContent = t('saving')
+        try {
+          await api.saveFile(id, state.activeFile, content)
+          // Update local cache
+          if (!state.agentData[id]) state.agentData[id] = { files: {} }
+          state.agentData[id].files[state.activeFile] = content
+          status.textContent = t('saved')
+          status.className = 'text-xs text-green-400 font-mono'
+          setTimeout(() => { status.textContent = '' }, 2000)
+        } catch (e) {
+          status.textContent = t('saveFailed')
+          status.className = 'text-xs text-red-400 font-mono'
+        }
+      })
+
+      // Agent desc save
+      document.getElementById('save-agent-btn').addEventListener('click', async () => {
+        const id = state.activeAgent?.id
+        if (!id) return
+        const desc = document.getElementById('agent-desc-editor').value
+        await api.patchAgent(id, { description: desc })
+        // Update local
+        const a = state.agents.find(a => a.id === id)
+        if (a) a.description = desc
+      })
+
+      // Cron filter
+      document.getElementById('cron-filter').addEventListener('input', e => {
+        renderCronList(e.target.value)
+      })
+      document.getElementById('cron-agent-only').addEventListener('change', () => {
+        renderCronList(document.getElementById('cron-filter').value)
+      })
+
+      // TTS settings
+      document.querySelectorAll('input[name="tts-provider"]').forEach(el => {
+        el.addEventListener('change', () => {
+          const isOpenAI = el.value === 'openai' && el.checked
+          document.getElementById('tts-openai-options').classList.toggle('hidden', !isOpenAI)
+        })
+      })
+      document.getElementById('tts-test-btn').addEventListener('click', () => {
+        speak(t('ttsTestText'))
+      })
+
+      document.getElementById('agent-voice-select').addEventListener('change', e => {
+        const agentId = state.activeAgent?.id
+        if (agentId) setAgentVoice(agentId, e.target.value)
+      })
+
+      // Cron modal
+      document.getElementById('modal-save-btn').addEventListener('click', async () => {
+        const jobId = document.getElementById('modal-job-id').value
+        const jobs = state.cronJobs
+        const job = jobs.find(j => j.id === jobId)
+        if (!job) return
+        job.name = document.getElementById('modal-job-name').value
+        job.schedule = document.getElementById('modal-job-schedule').value
+        job.prompt = document.getElementById('modal-job-prompt').value
+        await api.saveCron(jobs)
+        state.cronJobs = jobs
+        renderCronList(document.getElementById('cron-filter').value)
+        closeCronModal()
+      })
+      document.getElementById('modal-cancel-btn').addEventListener('click', closeCronModal)
+      document.getElementById('cron-modal-bg').addEventListener('click', closeCronModal)
+
+      // WebXR
+      document.getElementById('vr-btn').addEventListener('click', async () => {
+        if (!navigator.xr) return
+        try {
+          const session = await navigator.xr.requestSession('immersive-vr')
+          renderer.xr.enabled = true
+          renderer.xr.setSession(session)
+        } catch (e) {
+          alert(t('vrFailed') + e.message)
+        }
+      })
+
+      // Controls: stop auto-rotate on user interaction
+      controls.addEventListener('start', () => { controls.autoRotate = false })
+      controls.addEventListener('end',   () => { setTimeout(() => controls.autoRotate = true, 3000) })
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════
+    async function init() {
+      initThree()
+      initVoice()
+      setupTabs()
+      setupMobileNav()
+      setupSidebars()
+      setupEvents()
+      startClock()
+      applyLocale()
+
+      try {
+        const [configData, cronJobs, cronRuns] = await Promise.all([
+          api.getConfig(),
+          api.getCron(),
+          api.getCronRuns(),
+        ])
+        await loadPitConfig()
+
+        state.agents = configData.agents || []
+        state.cronJobs = Array.isArray(cronJobs) ? cronJobs : []
+        state.cronRuns = cronRuns || {}
+
+        document.getElementById('agent-count').textContent = state.agents.length
+        renderAgentList()
+        updatePipelineMini()
+
+        // Auto-select first agent
+        if (state.agents.length > 0) selectAgent(state.agents[0].id)
+
+      } catch (e) {
+        console.error('Init failed:', e)
+        document.getElementById('stage-role').textContent = t('backendError')
+        document.getElementById('stage-role').style.color = '#ef4444'
+      }
+
+      // Refresh runs every 30s
+      setInterval(async () => {
+        const runs = await api.getCronRuns().catch(() => ({}))
+        state.cronRuns = runs || {}
+        updatePipelineMini()
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab
+        if (activeTab === 'cron') renderCronList(document.getElementById('cron-filter').value)
+        if (activeTab === 'pipeline') renderPipeline()
+      }, 30000)
+    }
+
+    init()
+  </script>
+</body>
+</html>

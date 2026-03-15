@@ -1,0 +1,14 @@
+{
+  "name": "openclaw-not-only-dashboard",
+  "version": "1.0.0",
+  "description": "OpenClaw Agent Pit Stop - 試衣間",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^4.18.0"
+  }
+}
