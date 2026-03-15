@@ -18,11 +18,11 @@
       theme: {
         extend: {
           colors: {
-            bg: '#0F0F23',
-            surface: '#16183a',
-            surface2: '#1e2150',
-            primary: '#7C3AED',
-            accent: '#F43F5E',
+            bg: '#050d1a',
+            surface: '#0a1628',
+            surface2: '#0f1f38',
+            primary: '#0EA5E9',
+            accent: '#38BDF8',
           },
           fontFamily: {
             mono: ['Fira Code', 'monospace'],
@@ -35,15 +35,37 @@
 
   <style>
     :root {
-      --primary: #7C3AED;
-      --primary-glow: rgba(124,58,237,0.5);
-      --accent: #F43F5E;
-      --bg: #0F0F23;
-      --surface: #16183a;
+      --primary: #0EA5E9;
+      --primary-glow: rgba(14,165,233,0.5);
+      --accent: #38BDF8;
+      --bg: #050d1a;
+      --surface: #0a1628;
     }
 
     * { box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; overflow: hidden; background: #050d1a; color: #e2e8f0; }
+
+    /* Critical layout — prevent flash before Tailwind CDN loads */
+    .hidden { display: none !important; }
+    body { display: flex; flex-direction: column; }
+    #stage-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    #stage-container { flex: 1; min-height: 0; position: relative; background: #000; }
+    #three-canvas { display: block; width: 100%; height: 100%; }
+    svg { overflow: hidden; max-width: 100%; max-height: 100vh; }
+
+    /* Sidebar visibility — don't rely on Tailwind responsive classes */
+    #roster-panel { display: none; }
+    @media (min-width: 768px) {
+      #roster-panel { display: block !important; }
+      #roster-resize { display: block !important; }
+    }
+    #control-panel { display: none; }
+    @media (min-width: 1024px) {
+      #control-panel { display: flex !important; }
+      #control-resize { display: block !important; }
+    }
+    #roster-panel.sidebar-collapsed,
+    #control-panel.sidebar-collapsed { width: 0 !important; overflow: hidden !important; }
 
     /* CRT scanlines */
     body::before {
@@ -59,19 +81,19 @@
     ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 2px; }
 
     .neon { text-shadow: 0 0 8px var(--primary), 0 0 20px var(--primary-glow); }
-    .neon-border { box-shadow: 0 0 12px var(--primary-glow), inset 0 0 12px rgba(124,58,237,0.08); }
-    .neon-accent { text-shadow: 0 0 8px var(--accent), 0 0 20px rgba(244,63,94,0.5); }
+    .neon-border { box-shadow: 0 0 12px var(--primary-glow), inset 0 0 12px rgba(14,165,233,0.08); }
+    .neon-accent { text-shadow: 0 0 8px var(--accent), 0 0 20px rgba(56,189,248,0.5); }
 
     /* Agent card */
     .agent-card {
       transition: all 0.18s ease;
-      border: 1px solid rgba(124,58,237,0.18);
+      border: 1px solid rgba(14,165,233,0.18);
       cursor: pointer;
     }
-    .agent-card:hover { border-color: rgba(124,58,237,0.6); background: rgba(124,58,237,0.1); }
+    .agent-card:hover { border-color: rgba(14,165,233,0.6); background: rgba(14,165,233,0.1); }
     .agent-card.active {
       border-color: var(--primary);
-      background: rgba(124,58,237,0.18);
+      background: rgba(14,165,233,0.18);
       box-shadow: 0 0 14px var(--primary-glow);
     }
 
@@ -82,8 +104,8 @@
       color: #64748b;
       cursor: pointer;
     }
-    .tab-btn:hover { color: #a78bfa; }
-    .tab-btn.active { border-bottom-color: var(--primary); color: #a78bfa; }
+    .tab-btn:hover { color: #38bdf8; }
+    .tab-btn.active { border-bottom-color: var(--primary); color: #38bdf8; }
 
     /* File tabs */
     .file-tab-btn {
@@ -91,13 +113,13 @@
       color: #64748b;
       cursor: pointer;
     }
-    .file-tab-btn:hover { color: #a78bfa; }
-    .file-tab-btn.active { background: rgba(124,58,237,0.25); color: #c4b5fd; }
+    .file-tab-btn:hover { color: #38bdf8; }
+    .file-tab-btn.active { background: rgba(14,165,233,0.25); color: #7dd3fc; }
 
     /* Textarea editor */
     .md-editor {
       background: rgba(0,0,0,0.4);
-      border: 1px solid rgba(124,58,237,0.25);
+      border: 1px solid rgba(14,165,233,0.25);
       color: #e2e8f0;
       font-family: 'Fira Code', monospace;
       font-size: 11.5px;
@@ -107,10 +129,11 @@
       transition: border-color 0.15s;
     }
     .md-editor:focus { border-color: var(--primary); box-shadow: 0 0 8px var(--primary-glow); }
+
     .md-editor::placeholder { color: #475569; }
 
     /* Chat message */
-    .chat-msg-user { background: rgba(124,58,237,0.2); border-left: 2px solid var(--primary); }
+    .chat-msg-user { background: rgba(14,165,233,0.2); border-left: 2px solid var(--primary); }
     .chat-msg-agent { background: rgba(255,255,255,0.04); border-left: 2px solid #475569; }
 
     /* Voice button pulse */
@@ -202,7 +225,7 @@
     }
 
     /* Mobile bottom nav */
-    #mobile-nav button.active { color: #a78bfa; }
+    #mobile-nav button.active { color: #38bdf8; }
 
     /* VR button */
     #vr-btn { display: none; }
@@ -248,7 +271,7 @@
       transition: all 0.15s;
       flex-shrink: 0;
     }
-    .sidebar-toggle:hover { color: #a78bfa; border-color: rgba(124,58,237,0.6); background: rgba(124,58,237,0.1); }
+    .sidebar-toggle:hover { color: #7dd3fc; border-color: rgba(14,165,233,0.6); background: rgba(14,165,233,0.1); }
 
     /* Collapsed overlay buttons (re-open handle) */
     .sidebar-reopen {
@@ -266,26 +289,29 @@
       gap: 4px;
       flex-shrink: 0;
     }
-    .sidebar-reopen:hover { color: #a78bfa; border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.1); }
+    .sidebar-reopen:hover { color: #7dd3fc; border-color: rgba(14,165,233,0.5); background: rgba(14,165,233,0.1); }
     .sidebar-reopen.hidden { display: none; }
   </style>
 </head>
 
 <body class="bg-bg text-gray-200 font-sans flex flex-col" style="height:100dvh;">
 
+  <!-- Page veil — prevents FOUC while Tailwind CDN loads -->
+  <div id="page-veil" style="position:fixed;inset:0;background:#050d1a;z-index:99998;transition:opacity 0.3s ease;pointer-events:none;"></div>
+
   <!-- ═══ HEADER ═══ -->
-  <header class="flex items-center justify-between px-3 py-2 border-b border-purple-900/30 bg-surface/80 backdrop-blur flex-shrink-0 z-10">
+  <header class="flex items-center justify-between px-3 py-2 border-b border-sky-900/30 bg-surface/80 backdrop-blur flex-shrink-0 z-10">
     <div class="flex items-center gap-2.5">
       <!-- Logo -->
       <div class="w-7 h-7 rounded bg-primary/20 border border-primary/40 flex items-center justify-center">
-        <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
       </div>
-      <h1 class="font-mono text-sm font-bold neon text-purple-300 glitch-title hidden sm:block" data-text="OPENCLAW PIT STOP">
+      <h1 class="font-mono text-sm font-bold neon text-sky-300 glitch-title hidden sm:block" data-text="OPENCLAW PIT STOP">
         OPENCLAW PIT STOP
       </h1>
-      <h1 class="font-mono text-sm font-bold neon text-purple-300 sm:hidden">PIT STOP</h1>
+      <h1 class="font-mono text-sm font-bold neon text-sky-300 sm:hidden">PIT STOP</h1>
       <span class="text-xs text-gray-600 font-mono hidden md:inline" data-i18n="subtitle">試衣間</span>
     </div>
 
@@ -293,13 +319,13 @@
     <div class="hidden md:flex items-center gap-1.5" id="pipeline-mini"></div>
 
     <div class="flex items-center gap-3">
-      <div class="text-xs font-mono text-purple-400" id="clock"></div>
+      <div class="text-xs font-mono text-sky-400" id="clock"></div>
       <div class="text-xs font-mono text-gray-600" id="agent-online">
         <span id="agent-count">0</span> agents
       </div>
       <!-- Language toggle -->
       <button id="locale-toggle"
-        class="px-2 py-1 text-xs font-mono border border-purple-500/40 text-purple-300 hover:bg-purple-500/10 rounded transition-colors cursor-pointer">
+        class="px-2 py-1 text-xs font-mono border border-sky-500/40 text-sky-300 hover:bg-sky-500/10 rounded transition-colors cursor-pointer">
         EN
       </button>
     </div>
@@ -309,7 +335,7 @@
   <div class="flex flex-1 overflow-hidden" id="main-layout">
 
     <!-- ── LEFT: Agent Roster ── -->
-    <aside id="roster-panel" class="w-44 lg:w-52 border-r border-purple-900/25 bg-surface/40 overflow-y-auto flex-shrink-0 hidden md:block" style="transition: width 0.2s;">
+    <aside id="roster-panel" class="w-44 lg:w-52 border-r border-sky-900/25 bg-surface/40 overflow-y-auto flex-shrink-0 hidden md:block" style="transition: width 0.2s;">
       <div class="p-2">
         <div class="text-xs text-gray-600 font-mono uppercase tracking-widest px-2 py-2 flex items-center gap-1 justify-between">
           <div class="flex items-center gap-1">
@@ -330,7 +356,7 @@
     <div class="resize-handle hidden md:block" id="roster-resize"></div>
 
     <!-- Left re-open strip (shown when collapsed) -->
-    <div class="sidebar-reopen hidden md:hidden" id="roster-reopen">
+    <div class="sidebar-reopen hidden" id="roster-reopen">
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
       </svg>
@@ -341,7 +367,7 @@
     <main id="stage-panel" class="flex-1 flex flex-col overflow-hidden min-w-0">
 
       <!-- 3D Stage -->
-      <div class="relative flex-1 min-h-0 bg-black/30" id="stage-container">
+      <div class="relative flex-1 min-h-0" id="stage-container" style="background:#0d2040;">
         <canvas id="three-canvas"></canvas>
 
         <!-- Agent name overlay -->
@@ -350,12 +376,12 @@
             <div>
               <div class="font-mono text-xl font-bold text-white leading-tight" id="stage-name" data-i18n="selectAgent">選擇 Agent</div>
               <div class="text-xs text-gray-400 mt-0.5" id="stage-role"></div>
-              <div class="text-xs text-purple-400 font-mono mt-0.5" id="stage-model"></div>
-              <div id="agent-voice-row" class="hidden flex items-center gap-1.5 mt-1" style="pointer-events:auto">
+              <div class="text-xs text-sky-400 font-mono mt-0.5" id="stage-model"></div>
+              <div id="agent-voice-row" class="hidden flex items-center gap-1.5 mt-1" style="pointer-events:auto;display:none">
                 <svg class="w-3 h-3 text-gray-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0a9 9 0 01-9-9 9 9 0 019-9 9 9 0 019 9 9 9 0 01-9 9z"/>
                 </svg>
-                <select id="agent-voice-select" class="bg-transparent border border-purple-900/40 text-purple-300 text-xs font-mono rounded px-1.5 py-0.5 cursor-pointer">
+                <select id="agent-voice-select" class="bg-transparent border border-sky-900/40 text-sky-300 text-xs font-mono rounded px-1.5 py-0.5 cursor-pointer">
                   <option value="" data-i18n="useGlobalVoice">— 使用全域設定 —</option>
                   <option value="nova" data-i18n="voiceNova">nova（女，明亮）</option>
                   <option value="shimmer" data-i18n="voiceShimmer">shimmer（女，柔和）</option>
@@ -374,13 +400,17 @@
         </div>
 
         <!-- VR button -->
-        <button id="vr-btn" class="absolute top-3 right-3 px-2.5 py-1 text-xs font-mono border border-purple-500/50 text-purple-300 hover:bg-purple-500/20 rounded transition-colors cursor-pointer">
+        <button id="vr-btn" class="absolute top-3 right-3 px-2.5 py-1 text-xs font-mono border border-sky-500/50 text-sky-300 hover:bg-sky-500/20 rounded transition-colors cursor-pointer">
           VR
         </button>
       </div>
 
+      <!-- Animation carousel dots -->
+      <div id="anim-carousel" class="hidden flex-shrink-0 flex items-center justify-center gap-3 py-3" style="background:#0d2040;">
+      </div>
+
       <!-- Voice Chat -->
-      <div class="border-t border-purple-900/25 bg-surface/60 flex-shrink-0" style="height:188px">
+      <div class="border-t border-sky-900/25 bg-surface/60 flex-shrink-0" style="height:188px">
         <div class="flex h-full">
 
           <!-- Chat history -->
@@ -391,7 +421,7 @@
           </div>
 
           <!-- Input -->
-          <div class="w-40 lg:w-48 border-l border-purple-900/25 p-2 flex flex-col gap-1.5 flex-shrink-0">
+          <div class="w-40 lg:w-48 border-l border-sky-900/25 p-2 flex flex-col gap-1.5 flex-shrink-0">
             <textarea id="chat-input"
               class="md-editor flex-1 rounded p-2 text-xs"
               data-i18n-ph="inputPlaceholder"
@@ -421,7 +451,7 @@
     <div class="resize-handle hidden lg:block" id="control-resize"></div>
 
     <!-- Right re-open strip (shown when collapsed) -->
-    <div class="sidebar-reopen hidden lg:hidden" id="control-reopen">
+    <div class="sidebar-reopen hidden" id="control-reopen">
       <span data-i18n="tabSoul">靈魂</span>
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
@@ -429,10 +459,10 @@
     </div>
 
     <!-- ── RIGHT: Control Panel ── -->
-    <aside id="control-panel" class="w-72 lg:w-80 border-l border-purple-900/25 bg-surface/40 flex flex-col flex-shrink-0 hidden lg:flex" style="transition: width 0.2s;">
+    <aside id="control-panel" class="w-72 lg:w-80 border-l border-sky-900/25 bg-surface/40 flex flex-col flex-shrink-0 hidden lg:flex" style="transition: width 0.2s;">
 
       <!-- Tabs -->
-      <div class="flex border-b border-purple-900/25 flex-shrink-0 items-center">
+      <div class="flex border-b border-sky-900/25 flex-shrink-0 items-center">
         <button class="tab-btn active flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="soul" data-i18n="tabSoul">靈魂</button>
         <button class="tab-btn flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="cron" data-i18n="tabCron">排程</button>
         <button class="tab-btn flex-1 py-2.5 text-xs font-mono uppercase tracking-wider" data-tab="pipeline">Pipeline</button>
@@ -474,7 +504,7 @@
         </div>
 
         <!-- Agent quick info -->
-        <div id="agent-quick-info" class="hidden mt-2 p-2.5 rounded bg-black/30 border border-purple-900/25">
+        <div id="agent-quick-info" class="hidden mt-2 p-2.5 rounded bg-black/30 border border-sky-900/25">
           <div class="text-xs text-gray-500 font-mono mb-1.5" data-i18n="agentConfig">Agent 設定</div>
           <div class="space-y-2">
             <div>
@@ -484,7 +514,7 @@
                 placeholder="Agent description..."></textarea>
             </div>
             <button id="save-agent-btn"
-              class="w-full py-1 text-xs font-mono border border-purple-500/40 text-purple-300 hover:bg-purple-500/20 rounded transition-colors cursor-pointer"
+              class="w-full py-1 text-xs font-mono border border-sky-500/40 text-sky-300 hover:bg-sky-500/20 rounded transition-colors cursor-pointer"
               data-i18n="updateAgent">
               更新 Agent 設定
             </button>
@@ -494,9 +524,9 @@
 
       <!-- Cron Tab -->
       <div class="tab-content hidden flex-1 overflow-y-auto" id="tab-cron">
-        <div class="p-2 border-b border-purple-900/20 flex items-center gap-2">
+        <div class="p-2 border-b border-sky-900/20 flex items-center gap-2">
           <label class="flex items-center gap-1.5 cursor-pointer">
-            <input id="cron-agent-only" type="checkbox" class="accent-purple-500" checked />
+            <input id="cron-agent-only" type="checkbox" class="accent-sky-500" checked />
             <span class="text-xs font-mono text-gray-400" data-i18n="thisAgentOnly">只看此 Agent</span>
           </label>
           <input id="cron-filter" type="text"
@@ -517,18 +547,18 @@
 
         <!-- TTS Section -->
         <div class="space-y-2">
-          <div class="text-xs font-mono text-purple-400 uppercase tracking-wider border-b border-purple-900/30 pb-1" data-i18n="ttsSection">語音輸出 (TTS)</div>
+          <div class="text-xs font-mono text-sky-400 uppercase tracking-wider border-b border-sky-900/30 pb-1" data-i18n="ttsSection">語音輸出 (TTS)</div>
 
           <!-- Provider -->
           <div class="space-y-1">
             <label class="text-xs font-mono text-gray-500" data-i18n="ttsEngine">引擎</label>
             <div class="flex gap-2">
               <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="tts-provider" value="browser" class="accent-purple-500" checked />
+                <input type="radio" name="tts-provider" value="browser" class="accent-sky-500" checked />
                 <span class="text-xs font-mono text-gray-300" data-i18n="ttsBrowser">瀏覽器內建</span>
               </label>
               <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="tts-provider" value="openai" class="accent-purple-500" />
+                <input type="radio" name="tts-provider" value="openai" class="accent-sky-500" />
                 <span class="text-xs font-mono text-gray-300">OpenAI TTS</span>
               </label>
             </div>
@@ -556,7 +586,7 @@
             </div>
             <div id="tts-status" class="text-xs font-mono text-gray-600"></div>
             <button id="tts-test-btn"
-              class="w-full py-1.5 rounded border border-purple-500/40 text-purple-300 text-xs font-mono hover:bg-purple-500/10 transition-colors cursor-pointer"
+              class="w-full py-1.5 rounded border border-sky-500/40 text-sky-300 text-xs font-mono hover:bg-sky-500/10 transition-colors cursor-pointer"
               data-i18n="ttsTest">
               測試語音
             </button>
@@ -564,7 +594,7 @@
 
           <!-- Mute toggle -->
           <label class="flex items-center gap-2 cursor-pointer mt-1">
-            <input type="checkbox" id="tts-mute" class="accent-purple-500" />
+            <input type="checkbox" id="tts-mute" class="accent-sky-500" />
             <span class="text-xs font-mono text-gray-400" data-i18n="ttsMute">靜音（不播放語音）</span>
           </label>
         </div>
@@ -575,7 +605,7 @@
   </div>
 
   <!-- ═══ MOBILE BOTTOM NAV ═══ -->
-  <nav id="mobile-nav" class="md:hidden flex border-t border-purple-900/30 bg-surface/90 flex-shrink-0">
+  <nav id="mobile-nav" class="md:hidden flex border-t border-sky-900/30 bg-surface/90 flex-shrink-0">
     <button class="mobile-nav-btn flex-1 py-3 text-xs font-mono text-gray-500 transition-colors" data-panel="roster">Agents</button>
     <button class="mobile-nav-btn flex-1 py-3 text-xs font-mono text-gray-500 transition-colors active" data-panel="stage">Stage</button>
     <button class="mobile-nav-btn flex-1 py-3 text-xs font-mono text-gray-500 transition-colors" data-panel="control">Control</button>
@@ -584,8 +614,8 @@
   <!-- ═══ CRON EDIT MODAL ═══ -->
   <div id="cron-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
     <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="cron-modal-bg"></div>
-    <div class="relative w-full max-w-md rounded-lg border border-purple-500/50 bg-surface neon-border p-4 space-y-3">
-      <h3 class="font-mono text-sm text-purple-300" data-i18n="editCronJob">編輯 Cron Job</h3>
+    <div class="relative w-full max-w-md rounded-lg border border-sky-500/50 bg-surface neon-border p-4 space-y-3">
+      <h3 class="font-mono text-sm text-sky-300" data-i18n="editCronJob">編輯 Cron Job</h3>
       <input type="hidden" id="modal-job-id" />
       <div>
         <label class="text-xs text-gray-500 font-mono" data-i18n="cronName">名稱</label>
@@ -622,6 +652,7 @@
   <script type="module">
     import * as THREE from 'three'
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 
     // ═══════════════════════════════════════════════════════════════
     // i18n
@@ -873,19 +904,44 @@
     // ═══════════════════════════════════════════════════════════════
     // THREE.JS STAGE
     // ═══════════════════════════════════════════════════════════════
-    let renderer, scene, camera, controls, character, idleClock, particleSystem
+    let renderer, scene, camera, controls, character, idleClock, particleSystem, mixer
+    let _animClips = []  // current model's animation clips
+    let _activeAnimIdx = 0
+
+    function renderAnimDots() {
+      const carousel = document.getElementById('anim-carousel')
+      carousel.innerHTML = ''
+      if (_animClips.length <= 1) { carousel.classList.add('hidden'); return }
+      carousel.classList.remove('hidden')
+      _animClips.forEach((clip, i) => {
+        const dot = document.createElement('button')
+        dot.title = clip.name || `Animation ${i + 1}`
+        dot.style.cssText = `width:14px;height:14px;border-radius:50%;border:none;cursor:pointer;transition:all 0.2s;padding:0;`
+        dot.style.background = i === _activeAnimIdx ? '#38bdf8' : 'rgba(148,163,184,0.4)'
+        dot.style.transform = i === _activeAnimIdx ? 'scale(1.4)' : 'scale(1)'
+        dot.addEventListener('click', () => {
+          if (!mixer) return
+          _activeAnimIdx = i
+          mixer.stopAllAction()
+          _animClips.forEach(c => mixer.clipAction(c).stop())
+          mixer.clipAction(_animClips[i]).play()
+          renderAnimDots()
+        })
+        carousel.appendChild(dot)
+      })
+    }
 
     function initThree() {
       const canvas = document.getElementById('three-canvas')
       const container = document.getElementById('stage-container')
 
       scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x090912)
-      scene.fog = new THREE.FogExp2(0x090912, 0.04)
+      scene.background = new THREE.Color(0x0d2040)
+      scene.fog = new THREE.FogExp2(0x0d2040, 0.016)
 
       const w = container.clientWidth, h = container.clientHeight
       camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 100)
-      camera.position.set(0, 1.5, 5.5)
+      camera.position.set(0, 3.5, 7.5)
 
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -893,37 +949,60 @@
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.1
+      renderer.toneMappingExposure = 2.2
 
       controls = new OrbitControls(camera, renderer.domElement)
-      controls.target.set(0, 1.5, 0)
+      controls.target.set(0, 0.5, 0)
       controls.enableDamping = true
       controls.dampingFactor = 0.06
-      controls.minDistance = 2.5
-      controls.maxDistance = 9
+      controls.minDistance = 3.0
+      controls.maxDistance = 12
       controls.minPolarAngle = 0.15
       controls.maxPolarAngle = Math.PI - 0.15
       controls.autoRotate = true
       controls.autoRotateSpeed = 1.2
 
       // Lighting
-      scene.add(new THREE.AmbientLight(0x111133, 0.8))
+      scene.add(new THREE.AmbientLight(0x2a6aaa, 3.0))
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
+      const keyLight = new THREE.DirectionalLight(0xddeeff, 3.0)
       keyLight.position.set(3, 5, 3)
       keyLight.castShadow = true
       scene.add(keyLight)
 
-      const fillLight = new THREE.DirectionalLight(0x6644ff, 0.6)
+      const fillLight = new THREE.DirectionalLight(0x0066cc, 1.2)
       fillLight.position.set(-3, 2, -2)
       scene.add(fillLight)
 
-      const rimLight = new THREE.DirectionalLight(0x00ffff, 0.3)
+      const rimLight = new THREE.DirectionalLight(0x00aaff, 0.8)
       rimLight.position.set(0, 3, -5)
       scene.add(rimLight)
 
+      // Stage spotlight — dramatic beam from above
+      const spotlight = new THREE.SpotLight(0xffffff, 12)
+      spotlight.position.set(0, 9, 1.5)
+      spotlight.target.position.set(0, 1.5, 0)
+      spotlight.angle = Math.PI / 11
+      spotlight.penumbra = 0.35
+      spotlight.decay = 1.2
+      spotlight.distance = 22
+      spotlight.castShadow = true
+      spotlight.shadow.mapSize.width = 1024
+      spotlight.shadow.mapSize.height = 1024
+      scene.add(spotlight)
+      scene.add(spotlight.target)
+
+      // Side fill spotlight — cool blue
+      const sideSpot = new THREE.SpotLight(0x44aaff, 4)
+      sideSpot.position.set(-4, 5, 2)
+      sideSpot.target.position.set(0, 1.5, 0)
+      sideSpot.angle = Math.PI / 8
+      sideSpot.penumbra = 0.5
+      scene.add(sideSpot)
+      scene.add(sideSpot.target)
+
       // Grid
-      const grid = new THREE.GridHelper(14, 28, 0x2d1b69, 0x1a1040)
+      const grid = new THREE.GridHelper(14, 28, 0x0d3a5c, 0x071828)
       grid.position.y = -1.68
       scene.add(grid)
 
@@ -931,11 +1010,11 @@
       const stageMesh = new THREE.Mesh(
         new THREE.CylinderGeometry(1.3, 1.5, 0.22, 48),
         new THREE.MeshStandardMaterial({
-          color: 0x1a1040,
-          emissive: 0x7C3AED,
-          emissiveIntensity: 0.25,
-          metalness: 0.7,
-          roughness: 0.3,
+          color: 0x051828,
+          emissive: 0x0EA5E9,
+          emissiveIntensity: 0.4,
+          metalness: 0.8,
+          roughness: 0.2,
         })
       )
       stageMesh.position.y = -1.68
@@ -945,8 +1024,8 @@
       // Stage ring glow
       const ringGeo = new THREE.TorusGeometry(1.35, 0.025, 16, 80)
       const ringMat = new THREE.MeshStandardMaterial({
-        color: 0x7C3AED, emissive: 0x7C3AED, emissiveIntensity: 3,
-        transparent: true, opacity: 0.8
+        color: 0x0EA5E9, emissive: 0x0EA5E9, emissiveIntensity: 4,
+        transparent: true, opacity: 0.9
       })
       const ring = new THREE.Mesh(ringGeo, ringMat)
       ring.rotation.x = Math.PI / 2
@@ -955,7 +1034,7 @@
 
       // Default placeholder character
       idleClock = new THREE.Clock()
-      buildCharacter('#7C3AED')
+      buildCharacter('#0EA5E9')
 
       // Particle system (ambient dust)
       buildParticles()
@@ -980,14 +1059,23 @@
     }
 
     // Build / rebuild character for active agent
-    function buildCharacter(colorHex) {
+    function clearCharacter() {
+      _animClips = []; _activeAnimIdx = 0
+      document.getElementById('anim-carousel').innerHTML = ''
+      document.getElementById('anim-carousel').classList.add('hidden')
+      if (mixer) { mixer.stopAllAction(); mixer = null }
       if (character) {
         scene.remove(character)
         character.traverse(c => {
           if (c.geometry) c.geometry.dispose()
           if (c.material) c.material.dispose()
         })
+        character = null
       }
+    }
+
+    function buildCharacter(colorHex) {
+      clearCharacter()
 
       const color = new THREE.Color(colorHex)
       const mainMat = () => new THREE.MeshStandardMaterial({
@@ -1148,7 +1236,7 @@
       geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
       particleSystem = new THREE.Points(
         geo,
-        new THREE.PointsMaterial({ color: 0x7C3AED, size: 0.04, transparent: true, opacity: 0.6 })
+        new THREE.PointsMaterial({ color: 0x0EA5E9, size: 0.04, transparent: true, opacity: 0.6 })
       )
       scene.add(particleSystem)
     }
@@ -1157,12 +1245,15 @@
       if (particleSystem) particleSystem.material.color = threeColor
     }
 
+    let _elapsed = 0
     function animate() {
       requestAnimationFrame(animate)
-      const t = idleClock.getElapsedTime()
-      if (character) {
-        character.position.y = Math.sin(t * 1.4) * 0.06
-        character.rotation.y += 0
+      const delta = idleClock.getDelta()
+      _elapsed += delta
+      if (mixer) {
+        mixer.update(delta)
+      } else if (character) {
+        character.position.y = Math.sin(_elapsed * 1.4) * 0.06
       }
       if (particleSystem) {
         particleSystem.rotation.y += 0.001
@@ -1171,11 +1262,54 @@
       renderer.render(scene, camera)
     }
 
+    // Load a GLB model; falls back to procedural character on error
+    const _glbLoader = new GLTFLoader()
+    async function loadGLBCharacter(url) {
+      return new Promise((resolve) => {
+        _glbLoader.load(url, (gltf) => {
+          clearCharacter()
+          character = gltf.scene
+          scene.add(character)
+          // Compute world bounding box after adding to scene
+          character.updateWorldMatrix(true, true)
+          const box = new THREE.Box3().setFromObject(character)
+          const size = new THREE.Vector3()
+          box.getSize(size)
+          // Scale to fit ~3 units tall
+          const scale = 3.0 / Math.max(size.x, size.y, size.z)
+          character.scale.setScalar(scale)
+          // Recompute after scale, then centre + sit on platform
+          const box2 = new THREE.Box3().setFromObject(character)
+          const center2 = new THREE.Vector3()
+          box2.getCenter(center2)
+          character.position.x -= center2.x
+          character.position.y -= box2.min.y + 1.57  // sit on stage top (y≈-1.57)
+          character.position.z -= center2.z
+          character.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true } })
+          // Reset camera to show full character + stage
+          camera.position.set(0, 3.5, 7.5)
+          controls.target.set(0, 0.5, 0)
+          controls.update()
+          // Play first animation clip; build carousel dots
+          _animClips = gltf.animations || []
+          _activeAnimIdx = 0
+          if (_animClips.length) {
+            mixer = new THREE.AnimationMixer(character)
+            mixer.clipAction(_animClips[0]).play()
+          }
+          renderAnimDots()
+          resolve(true)
+        }, undefined, () => resolve(false))
+      })
+    }
+
     // Swap character with animation
-    function swapCharacter(colorHex) {
+    async function swapCharacter(colorHex, agentId) {
       controls.autoRotate = true
-      // Quick flash
-      buildCharacter(colorHex)
+      // Try GLB model for this agent first, then fall back to main.glb, then procedural
+      const loaded = (agentId ? await loadGLBCharacter(`/models/${agentId}.glb`) : false)
+        || await loadGLBCharacter('/models/main.glb')
+      if (!loaded) buildCharacter(colorHex)
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1365,7 +1499,7 @@
 
       const div = document.createElement('div')
       div.className = `p-2 rounded text-xs leading-relaxed font-mono ${
-        role === 'user'    ? 'chat-msg-user text-purple-100' :
+        role === 'user'    ? 'chat-msg-user text-sky-100' :
         role === 'agent'   ? 'chat-msg-agent text-gray-300' :
         role === 'thinking'? 'chat-msg-agent text-gray-600 italic' :
                              'text-gray-500 text-center py-1'
@@ -1434,7 +1568,7 @@
       const theme = getTheme(id, agent)
 
       // Update Three.js stage
-      swapCharacter(theme.color)
+      swapCharacter(theme.color, id)
 
       // Update overlay
       document.getElementById('stage-name').textContent = agent.id
@@ -1446,6 +1580,7 @@
       const voiceRow = document.getElementById('agent-voice-row')
       const voiceSel = document.getElementById('agent-voice-select')
       voiceRow.classList.remove('hidden')
+      voiceRow.style.display = 'flex'
       voiceSel.value = getAgentVoices()[agent.id] || ''
 
       // Re-render roster (highlight)
@@ -1535,7 +1670,7 @@
         const schedExpr = getScheduleExpr(job)
 
         const row = document.createElement('div')
-        row.className = 'p-2 rounded bg-black/20 border border-purple-900/20 hover:border-purple-900/40 transition-colors'
+        row.className = 'p-2 rounded bg-black/20 border border-sky-900/20 hover:border-sky-900/40 transition-colors'
         row.innerHTML = `
           <div class="flex items-start gap-2">
             <div class="color-dot mt-1 flex-shrink-0" style="background:${theme.color}"></div>
@@ -1547,7 +1682,7 @@
               <div class="flex items-center justify-between mt-1">
                 <span class="text-xs text-gray-600 font-mono">${agentId || '?'} · ${schedExpr}</span>
                 <div class="flex items-center gap-1.5">
-                  <button class="text-gray-600 hover:text-purple-300 transition-colors cursor-pointer" data-edit="${job.id}" title="Edit">
+                  <button class="text-gray-600 hover:text-sky-300 transition-colors cursor-pointer" data-edit="${job.id}" title="Edit">
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                     </svg>
@@ -1624,9 +1759,9 @@
 
       for (const pipeline of PIPELINES) {
         const block = document.createElement('div')
-        block.className = 'p-3 rounded bg-black/20 border border-purple-900/20'
+        block.className = 'p-3 rounded bg-black/20 border border-sky-900/20'
         block.innerHTML = `
-          <div class="text-xs font-mono text-purple-300 mb-3">${pipeline.name}</div>
+          <div class="text-xs font-mono text-sky-300 mb-3">${pipeline.name}</div>
           <div class="space-y-1.5">
             ${pipeline.steps.map((step, i) => {
               const job = findPipelineJob(step)
@@ -1792,6 +1927,7 @@
         expandSidebar(panel, reopen, handle, storageKey)
       }
       requestAnimationFrame(() => onResize())
+      panel.addEventListener('transitionend', () => onResize(), { once: true })
     }
 
     function expandSidebar(panel, reopen, handle, storageKey) {
@@ -1801,6 +1937,7 @@
       reopen.classList.add('hidden')
       if (handle) handle.style.display = ''
       requestAnimationFrame(() => onResize())
+      panel.addEventListener('transitionend', () => onResize(), { once: true })
     }
 
     function setupResizeDrag(handle, panel, direction) {
@@ -1983,7 +2120,13 @@
         // Auto-select first agent
         if (state.agents.length > 0) selectAgent(state.agents[0].id)
 
+        // Fade out page veil — Tailwind is now loaded and page is ready
+        const veil = document.getElementById('page-veil')
+        if (veil) { veil.style.opacity = '0'; setTimeout(() => veil.remove(), 350) }
+
       } catch (e) {
+        const veil = document.getElementById('page-veil')
+        if (veil) { veil.style.opacity = '0'; setTimeout(() => veil.remove(), 350) }
         console.error('Init failed:', e)
         document.getElementById('stage-role').textContent = t('backendError')
         document.getElementById('stage-role').style.color = '#ef4444'

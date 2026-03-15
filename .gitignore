@@ -1,5 +1,7 @@
 node_modules/
 config.js
 public/config.js
+public/models/
+CLAUDE.md
 
 .env
